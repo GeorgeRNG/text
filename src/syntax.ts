@@ -26,7 +26,7 @@ export class Token {
     parse(string: string): ParsedToken | null {
         const parsed = this.parser(string);
         if(parsed == null) return null;
-        return new ParsedToken(string.substring(0,parsed));
+        return new ParsedToken(this,string.substring(0,parsed));
     }
 }
 
@@ -50,22 +50,24 @@ export class TokenGroup extends Token {
             });
             if(found == null) break;
         }
-        return new ParsedTokenGroup(superParsed.value,values)
+        return new ParsedTokenGroup(this,superParsed.value,values)
     }
 }
 
 class ParsedToken {
     public readonly length : number;
+    public readonly id : string;
 
-    constructor(public readonly value: string) {
+    constructor(type: Token, public readonly value: string, ) {
         this.length = value.length
+        this.id = type.id;
     }
 }
 class ParsedTokenGroup extends ParsedToken {
     public readonly fullLength : number;
 
-    constructor(value: string, public readonly values : ParsedToken[]) {
-        super(value);
+    constructor(type: Token, value: string, public readonly values : ParsedToken[]) {
+        super(type,value);
         this.fullLength = value.length + values.reduce((accumulator, currentValue) => accumulator+currentValue.length,0);
     }
 }
