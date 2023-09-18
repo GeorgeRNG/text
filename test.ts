@@ -1,12 +1,27 @@
-import { Token, TokenGroup } from "./src/syntax";
+import { TokenMono, TokenGroup } from "./src/syntax";
 
-const a = new Token('a',/a+/i)
-const b = new Token('b',/b+/i)
+const WhiteSpace = new TokenMono('space',/\s+/);
+const LineEnd = new TokenMono('end',/[\n;]+|$/);
 
-const types = [a,b]
-const c = new TokenGroup('c',/c+/i,types);
-types.push(c)
+const GraveAccent = new TokenMono('grave','`');
+const VariableName = new TokenMono('variable-name',/[^\n`\\]+/i);
 
-const out = c.parse('cccaaababbbacaba')
+const Game = new TokenMono('game',/G(AME)?/i);
+const Save = new TokenMono('save',/S(AVE)?/i);
+const GlobalScope = new TokenGroup('global-scope','',[Game,Save]);
 
-console.log(out);
+const Variable = new TokenGroup('variable','',[GraveAccent,VariableName,GraveAccent]);
+const GlobalVariable = new TokenGroup('global','',[GlobalScope,WhiteSpace,Variable]);
+
+const Number = new TokenMono('number',/\d+(.\d+)?/)
+
+const StorageScope = new TokenGroup('game','',[GlobalVariable,LineEnd,WhiteSpace]);
+
+const out = StorageScope.parse(`
+
+variable
+
+
+`)
+
+console.log(out?.toString());
