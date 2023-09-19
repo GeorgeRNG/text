@@ -19,9 +19,9 @@ const FordSlash = new TokenWord('slash-forward',/\//);
 const BackSlash = new TokenWord('slash-back',/\\/);
 const Separator = new TokenOption('separator',[Comma,WhiteSpace]);
 
-const Number = new TokenWord('number',/\d+(.\d+)?/);
+const Number = new TokenWord('number',/-?\d+(.\d+)?/);
 const String = new TokenWord('string',/"[^"]+"/i);
-const Vector = new TokenShape('vector',[LeftAngleBracket,WhiteSpaceOptional,Number,Separator,Number,Separator,Number,WhiteSpaceOptional,RightAngleBracket]);
+const Vector = new TokenShape('vector',[LeftAngleBracket,Number,Separator,Number,Separator,Number,RightAngleBracket]);
 const TextOpen = new TokenShape('text-open',[LeftAngleBracket,RightAngleBracket]);
 const TextClose = new TokenShape('text-close',[LeftAngleBracket,FordSlash,RightAngleBracket]);
 const Text = new TokenShape('text',[TextOpen,VariableName,TextClose]);
