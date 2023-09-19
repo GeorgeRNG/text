@@ -48,11 +48,13 @@ const BigVariable = new TokenShape('big-variable',[GraveAccent,VariableName,Grav
 const SmallVariable = new TokenWord('small-variable',/[A-Z_][A-Z0-9_]+/i);
 const Variable = new TokenOption('variable',[BigVariable,SmallVariable]);
 const GlobalVariable = new TokenShape('global',[GlobalScope,WhiteSpace,Variable]);
-const GlobalVariableAssignmentLiteral = new TokenShape("global-assign",[GlobalVariable,VariableAssignmentLiteral]);
+const GlobalVariableAssignmentLiteral = new TokenShape('global-assign',[GlobalVariable,VariableAssignmentLiteral]);
 
 const Player = new TokenWord('player',/player/i);
 const Entity = new TokenWord('entity',/ent(ity)/i);
 const EventScopeName = new TokenOption('event-scope-name',[Player,Entity]);
-const EventScope = new TokenPool('event-scope',[EventScopeName,WhiteSpaceOptional,LeftCurlyBracket,RightCurlyBracket]);
+const EventScopeContent = new TokenPool('event-scope-content',[WhiteSpace,LineEnd,GlobalVariableAssignmentLiteral])
+const EventScope = new TokenShape('event-scope',[EventScopeName,WhiteSpaceOptional,LeftCurlyBracket,EventScopeContent,RightCurlyBracket]);
+
 
 export const StorageScope = new TokenPool('game',[WhiteSpace,LineEnd,GlobalVariableAssignmentLiteral,GlobalVariable,EventScope]);

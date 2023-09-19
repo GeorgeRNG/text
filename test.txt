@@ -1,3 +1,7 @@
-SAVE `timer`= [1,1,1,1,1]
+GAME timer
 
-player {}
+player {
+    GAME score = 1
+    GAME `a vector ig` = <0,1,1>
+    SAVE spawn = [10,60,10]
+}
