@@ -1,1 +1,3 @@
-SAVE `timer`=-1
+SAVE `timer`= [1,1,1,1,1]
+
+player {}
