@@ -5,44 +5,40 @@ abstract class Token {
 }
 
 /**
- * Parsable like element.
- */
-type parsy = ((string: string) => (number | null)) | RegExp | string;
-
-/**
  * A single token, a piece of text.
  */
-export class TokenMono extends Token {
+export class TokenWord extends Token {
     private readonly parser: (string: string) => number | null;
 
-    constructor(id: string, parsy: parsy) {
+    constructor(id: string, parserLike: ((string: string) => (number | null)) | RegExp | string) {
         super(id);
-        if(typeof parsy == 'string') this.parser = (string) => string.startsWith(parsy) ? parsy.length : null
-        else if(parsy instanceof RegExp) this.parser = (string) => {
-            let match = string.match(parsy)
+        if(typeof parserLike == 'string') this.parser = (string) => string.startsWith(parserLike) ? parserLike.length : null
+        else if(parserLike instanceof RegExp) this.parser = (string) => {
+            let match = string.match(parserLike)
             if(match == null) return null;
             if(match.index != 0) return null;
             return match[0].length;
         }
-        else this.parser = parsy;
+        else this.parser = parserLike;
     }
 
-    parse(string: string): ParsedTokenMono | null {
+    parse(string: string): ParsedTokenWord | null {
         const parsed = this.parser(string);
         if(parsed == null) return null;
-        return new ParsedTokenMono(this,string.substring(0,parsed));
+        return new ParsedTokenWord(this,string.substring(0,parsed));
     }
 }
 
 /**
  * Any order, amount and shape of given tokens.
+ * Can return an empty array.
  */
-export class TokenGroup extends Token {
+export class TokenPool extends Token {
     constructor(id: string, public readonly subtypes: Token[]) {
         super(id);
     }
 
-    parse(string: string): ParsedTokenGroup | null {
+    parse(string: string): ParsedTokenPool | null {
         const values : ParsedToken[] = [];
         let currentPosition = 0;
         while (currentPosition < string.length) {
@@ -55,12 +51,13 @@ export class TokenGroup extends Token {
             });
             if(found == null) break;
         }
-        return new ParsedTokenGroup(this,values)
+        return new ParsedTokenPool(this,values)
     }
 }
 
 /**
- * Any one of the given tokens.
+ * A token which works for any of the subtypes.
+ * Priorities the first matching one, or null.
  */
 export class TokenOption extends Token {
     constructor(id: string, public readonly subtypes: Token[]) {
@@ -85,7 +82,7 @@ export class TokenOption extends Token {
 
 
 /**
- * A locked shape of given tokens.
+ * A sequence of tokens which only resolve if all the subtypes match.
  */
 export class TokenShape extends Token {
     constructor(id: string, public readonly subtypes: Token[]) {
@@ -106,11 +103,26 @@ export class TokenShape extends Token {
     }
 }
 
+/**
+ * The output of a token. Extended by each type of token.
+ * It has the id assigned to the token it was parsed from.
+ * It has the value which was matched, which could be a string or other tokens.
+ * It has the length of what it's matched.
+ * It has a copy of the Token which it was matched from.
+ */
 abstract class ParsedToken {
+    /**
+     * The id assigned to the token this was matched from.
+     */
     public readonly id : string;
     public abstract readonly value: any;
     
-    constructor(public readonly type: Token, public readonly length : number) {
+    constructor(
+        /**
+         * A copy of the Token this was matched from.
+         */
+        public readonly type: Token,
+        public readonly length : number) {
         this.id = type.id;
     }
 
@@ -120,8 +132,8 @@ abstract class ParsedToken {
     }
 }
 
-class ParsedTokenMono extends ParsedToken {
-    constructor(type: TokenMono, public readonly value: string, ) {
+class ParsedTokenWord extends ParsedToken {
+    constructor(type: TokenWord, public readonly value: string, ) {
         super(type, value.length);
     }
 
@@ -129,8 +141,8 @@ class ParsedTokenMono extends ParsedToken {
         return {id: this.id, value: this.value, length: this.length}
     }
 }
-class ParsedTokenGroup extends ParsedToken {
-    constructor(type: TokenGroup, public readonly value : ParsedToken[]) {
+class ParsedTokenPool extends ParsedToken {
+    constructor(type: TokenPool, public readonly value : ParsedToken[]) {
         super(type,value.reduce((accumulator, currentValue) => accumulator + currentValue.length, 0));
     }
 
