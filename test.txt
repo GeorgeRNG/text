@@ -1,4 +1,1 @@
-
-SAVE `%default score`
-
-GAME timer
+SAVE `timer` = "hi"
