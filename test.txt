@@ -1,0 +1,4 @@
+
+SAVE `%default score`
+
+GAME timer

@@ -35,13 +35,6 @@ export class TokenMono extends Token {
 }
 
 /**
- * 
- */
-export class MultiToken {
-
-}
-
-/**
  * Any order, amount and shape of given tokens.
  */
 export class TokenGroup extends Token {
@@ -90,6 +83,7 @@ export class TokenOption extends Token {
 }
 
 
+
 /**
  * A locked shape of given tokens.
  */
@@ -98,8 +92,17 @@ export class TokenShape extends Token {
         super(id);
     }
 
-    parse(string: string): ParsedToken/*Shape*/ | null {
-        throw new Error("Method not implemented.");
+    parse(string: string): ParsedTokenShape | null {
+        const out : ParsedToken[] = [];
+        let currentPosition = 0;
+        for (let index = 0; index < this.subtypes.length; index++) {
+            const subtype = this.subtypes[index];
+            const parsed = subtype.parse(string.substring(currentPosition,string.length));
+            if(parsed == null) return null;
+            out.push(parsed);
+            currentPosition+=parsed.length;
+        }
+        return new ParsedTokenShape(this,out);
     }
 }
 
@@ -127,7 +130,7 @@ class ParsedTokenMono extends ParsedToken {
     }
 }
 class ParsedTokenGroup extends ParsedToken {
-    constructor(type: TokenGroup, public readonly value : ParsedTokenMono[]) {
+    constructor(type: TokenGroup, public readonly value : ParsedToken[]) {
         super(type,value.reduce((accumulator, currentValue) => accumulator + currentValue.length, 0));
     }
 
@@ -142,5 +145,14 @@ class ParsedTokenOption extends ParsedToken {
 
     toJSON() {
         return {id: this.id, value: this.value, length: this.length}
+    }
+}
+class ParsedTokenShape extends ParsedToken {
+    constructor(type: TokenShape, public readonly value : ParsedToken[]) {
+        super(type,value.reduce((accumulator, currentValue) => accumulator + currentValue.length, 0));
+    }
+
+    toJSON() {
+        return {id: this.id, values: this.value.map(value => value.toJSON()), length: this.length}
     }
 }
