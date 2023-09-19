@@ -1,5 +1,7 @@
 abstract class Token {
     constructor(public readonly id: string) {}
+
+    abstract parse(string: string): ParsedToken | null;
 }
 
 /**
@@ -25,13 +27,7 @@ export class TokenMono extends Token {
         else this.parser = parsy;
     }
 
-    /**
-     * Gets the length of the parsed value.
-     * This parses the start of the input.
-     * @param string The text to parse.
-     * @returns How long the parsed element is.
-     */
-    parse(string: string): ParsedTokenMono<TokenMono> | null {
+    parse(string: string): ParsedTokenMono | null {
         const parsed = this.parser(string);
         if(parsed == null) return null;
         return new ParsedTokenMono(this,string.substring(0,parsed));
@@ -48,81 +44,103 @@ export class MultiToken {
 /**
  * Any order, amount and shape of given tokens.
  */
-export class TokenGroup extends TokenMono {
-    constructor(id: string, pattern: parsy, public readonly subtypes: TokenMono[]) {
-        super(id, pattern);
+export class TokenGroup extends Token {
+    constructor(id: string, public readonly subtypes: Token[]) {
+        super(id);
     }
 
-    override parse(string: string): ParsedTokenGroup | null {
-        const superParsed = super.parse(string);
-        if(superParsed == null) return null;
-        const values : ParsedTokenMono[] = [];
-        let currentPosition = superParsed.length;
+    parse(string: string): ParsedTokenGroup | null {
+        const values : ParsedToken[] = [];
+        let currentPosition = 0;
         while (currentPosition < string.length) {
             const found = this.subtypes.find(subtype => {
                 const parsed = subtype.parse(string.substring(currentPosition,string.length));
                 if(parsed == null) return false;
                 values.push(parsed);
-                currentPosition+=parsed.fullLength;
+                currentPosition+=parsed.length;
                 return true;
             });
             if(found == null) break;
         }
-        return new ParsedTokenGroup(this,superParsed.value,values)
+        return new ParsedTokenGroup(this,values)
     }
 }
 
 /**
  * Any one of the given tokens.
  */
-export class TokenOption extends TokenMono {
-    // TODO: this
+export class TokenOption extends Token {
+    constructor(id: string, public readonly subtypes: Token[]) {
+        super(id);
+    }
+
+    parse(string: string): ParsedToken | null {
+        let value : ParsedToken | null = null;
+        // for loop ignorance
+        this.subtypes.find(subtype => {
+            const parsed = subtype.parse(string);
+            if(parsed == null) return false;
+            value = parsed;
+            return true;
+        });
+        if(value == null) return null;
+        return new ParsedTokenOption(this,value)
+    }
+    
 }
 
 
 /**
  * A locked shape of given tokens.
  */
-export class TokenShape {
+export class TokenShape extends Token {
+    constructor(id: string, public readonly subtypes: Token[]) {
+        super(id);
+    }
 
-}
-
-abstract class ParsedToken<T extends Token> {
-    public readonly id : string;
-    public abstract readonly fullLength : number;
-
-    constructor(public readonly type: T) {
-        this.id = type.id;
+    parse(string: string): ParsedToken/*Shape*/ | null {
+        throw new Error("Method not implemented.");
     }
 }
 
-class ParsedTokenMono<T extends TokenMono> extends ParsedToken<T> {
-    public readonly length : number;
-    public readonly fullLength : number;
+abstract class ParsedToken {
+    public readonly id : string;
+    public abstract readonly value: any;
+    
+    constructor(public readonly type: Token, public readonly length : number) {
+        this.id = type.id;
+    }
 
-    constructor(type: T, public readonly value: string, ) {
-        super(type)
-        this.length = value.length;
-        this.fullLength = value.length;
+    abstract toJSON(): any;
+    toString(): string {
+        return JSON.stringify(this,null,4);
+    }
+}
+
+class ParsedTokenMono extends ParsedToken {
+    constructor(type: TokenMono, public readonly value: string, ) {
+        super(type, value.length);
     }
 
     toJSON() {
         return {id: this.id, value: this.value, length: this.length}
     }
-
-    toString() {
-        return JSON.stringify(this,null,4)
-    }
 }
-class ParsedTokenGroup<T extends TokenGroup> extends ParsedTokenMono<T> {
-    public readonly fullLength : number;
-
-    constructor(type: TokenMono, value: string, public readonly values : ParsedTokenMono[]) {
-        super(type,value);
-        this.fullLength = value.length + values.reduce((accumulator, currentValue) => accumulator+currentValue.length,0);
+class ParsedTokenGroup extends ParsedToken {
+    constructor(type: TokenGroup, public readonly value : ParsedTokenMono[]) {
+        super(type,value.reduce((accumulator, currentValue) => accumulator + currentValue.length, 0));
     }
 
     toJSON() {
-        return {...super.toJSON(), values: this.values.map(value => value.toJSON())}
+        return {id: this.id, values: this.value.map(value => value.toJSON()), length: this.length}
+    }
+}
+class ParsedTokenOption extends ParsedToken {
+    constructor(type: TokenOption, public readonly value: ParsedToken) {
+        super(type,value.length);
+    }
+
+    toJSON() {
+        return {id: this.id, value: this.value, length: this.length}
     }
 }
