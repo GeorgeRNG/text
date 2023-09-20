@@ -1,7 +1,7 @@
 abstract class Token {
     constructor(public readonly id: string) {}
 
-    abstract parse(string: string): ParsedToken | null;
+    abstract parse(string: string, start?: number): ParsedToken | null;
 }
 
 /**
@@ -22,10 +22,10 @@ export class TokenWord extends Token {
         else this.parser = parserLike;
     }
 
-    parse(string: string): ParsedTokenWord | null {
+    parse(string: string, start = 0): ParsedTokenWord | null {
         const parsed = this.parser(string);
         if(parsed == null) return null;
-        return new ParsedTokenWord(this,string.substring(0,parsed));
+        return new ParsedTokenWord(this,string.substring(0,parsed),start);
     }
 }
 
@@ -38,12 +38,12 @@ export class TokenPool extends Token {
         super(id);
     }
 
-    parse(string: string): ParsedTokenPool | null {
+    parse(string: string, start = 0): ParsedTokenPool | null {
         const values : ParsedToken[] = [];
         let currentPosition = 0;
         while (currentPosition < string.length) {
             const found = this.subtypes.find(subtype => {
-                const parsed = subtype.parse(string.substring(currentPosition,string.length));
+                const parsed = subtype.parse(string.substring(currentPosition,string.length),start+currentPosition);
                 if(parsed == null) return false;
                 values.push(parsed);
                 currentPosition+=parsed.length;
@@ -51,7 +51,7 @@ export class TokenPool extends Token {
             });
             if(found == null) break;
         }
-        return new ParsedTokenPool(this,values)
+        return new ParsedTokenPool(this,values,start)
     }
 }
 
@@ -64,17 +64,17 @@ export class TokenOption extends Token {
         super(id);
     }
 
-    parse(string: string): ParsedToken | null {
+    parse(string: string, start = 0): ParsedToken | null {
         let value : ParsedToken | null = null;
         // for loop ignorance
         this.subtypes.find(subtype => {
-            const parsed = subtype.parse(string);
+            const parsed = subtype.parse(string,start);
             if(parsed == null) return false;
             value = parsed;
             return true;
         });
         if(value == null) return null;
-        return new ParsedTokenOption(this,value)
+        return new ParsedTokenOption(this,value,start)
     }
     
 }
@@ -89,17 +89,17 @@ export class TokenShape extends Token {
         super(id);
     }
 
-    parse(string: string): ParsedTokenShape | null {
+    parse(string: string, start = 0): ParsedTokenShape | null {
         const out : ParsedToken[] = [];
         let currentPosition = 0;
         for (let index = 0; index < this.subtypes.length; index++) {
             const subtype = this.subtypes[index];
-            const parsed = subtype.parse(string.substring(currentPosition,string.length));
+            const parsed = subtype.parse(string.substring(currentPosition,string.length),start+currentPosition);
             if(parsed == null) return null;
             out.push(parsed);
             currentPosition+=parsed.length;
         }
-        return new ParsedTokenShape(this,out);
+        return new ParsedTokenShape(this,out,start);
     }
 }
 
@@ -116,55 +116,61 @@ abstract class ParsedToken {
      */
     public readonly id : string;
     public abstract readonly value: any;
+    public readonly end : number;
     
     constructor(
         /**
          * A copy of the Token this was matched from.
          */
         public readonly type: Token,
-        public readonly length : number) {
+        public readonly length : number,
+        public readonly start: number,
+        ) {
         this.id = type.id;
+        this.end = start + length;
     }
 
-    abstract toJSON(): any;
+    toJSON() : any {
+        return {id: this.id, start: this.start, length: this.length, end: this.end}
+    };
     toString(): string {
         return JSON.stringify(this,null,4);
     }
 }
 
 class ParsedTokenWord extends ParsedToken {
-    constructor(type: TokenWord, public readonly value: string, ) {
-        super(type, value.length);
+    constructor(type: TokenWord, public readonly value: string, start: number) {
+        super(type, value.length, start);
     }
 
     toJSON() {
-        return {id: this.id, value: this.value, length: this.length}
+        return {...super.toJSON(), value: this.value}
     }
 }
 class ParsedTokenPool extends ParsedToken {
-    constructor(type: TokenPool, public readonly value : ParsedToken[]) {
-        super(type,value.reduce((accumulator, currentValue) => accumulator + currentValue.length, 0));
+    constructor(type: TokenPool, public readonly value : ParsedToken[], start: number) {
+        super(type,value.reduce((accumulator, currentValue) => accumulator + currentValue.length, 0),start);
     }
 
     toJSON() {
-        return {id: this.id, values: this.value.map(value => value.toJSON()), length: this.length}
+        return {...super.toJSON(), values: this.value.map(value => value.toJSON())}
     }
 }
 class ParsedTokenOption extends ParsedToken {
-    constructor(type: TokenOption, public readonly value: ParsedToken) {
-        super(type,value.length);
+    constructor(type: TokenOption, public readonly value: ParsedToken, start: number) {
+        super(type,value.length,start);
     }
 
     toJSON() {
-        return {id: this.id, value: this.value, length: this.length}
+        return {...super.toJSON(), value: this.value}
     }
 }
 class ParsedTokenShape extends ParsedToken {
-    constructor(type: TokenShape, public readonly value : ParsedToken[]) {
-        super(type,value.reduce((accumulator, currentValue) => accumulator + currentValue.length, 0));
+    constructor(type: TokenShape, public readonly value : ParsedToken[], start: number) {
+        super(type,value.reduce((accumulator, currentValue) => accumulator + currentValue.length, 0), start);
     }
 
     toJSON() {
-        return {id: this.id, values: this.value.map(value => value.toJSON()), length: this.length}
+        return {...super.toJSON(), values: this.value.map(value => value.toJSON())}
     }
 }
