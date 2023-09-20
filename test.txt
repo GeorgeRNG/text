@@ -1,7 +1,14 @@
-GAME timer
+GAME timer // we have comments!!
 
 player {
     GAME score = 1
     GAME `a vector ig` = <0,1,1>
     SAVE spawn = [10,60,10]
+
+    /*
+    Multiline comments
+    */
+    OnJoin() {
+        // no statements yet
+    }
 }
