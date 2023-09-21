@@ -1,7 +1,7 @@
 abstract class Token {
     constructor(public readonly id: string) {}
 
-    abstract parse(string: string, start?: number): ParsedToken | null;
+    abstract parse(string: string, start?: number): TokenOutput | null;
 }
 
 /**
@@ -42,12 +42,15 @@ export class TokenPool extends Token {
         const values : ParsedToken[] = [];
         let currentPosition = 0;
         while (currentPosition < string.length) {
+            // TODO: this could use a for loop.
             const found = this.subtypes.find(subtype => {
                 const parsed = subtype.parse(string.substring(currentPosition,string.length),start+currentPosition);
-                if(parsed == null) return false;
-                values.push(parsed);
-                currentPosition+=parsed.length;
-                return true;
+                if(parsed instanceof ParsedToken) {
+                    values.push(parsed);
+                    currentPosition+=parsed.length;
+                    return true;
+                }
+                return false;
             });
             if(found == null) break;
         }
@@ -66,13 +69,13 @@ export class TokenOption extends Token {
 
     parse(string: string, start = 0): ParsedToken | null {
         let value : ParsedToken | null = null;
-        // for loop ignorance
-        this.subtypes.find(subtype => {
+        // TODO: use a for loop
+        for (let i = 0; i < this.subtypes.length; i++) {
+            const subtype = this.subtypes[i];
             const parsed = subtype.parse(string,start);
-            if(parsed == null) return false;
-            value = parsed;
-            return true;
-        });
+            if(parsed == null) continue;
+            if(parsed instanceof ParsedToken) value = parsed;
+        }
         if(value == null) return null;
         return new ParsedTokenOption(this,value,start)
     }
@@ -95,38 +98,45 @@ export class TokenShape extends Token {
         for (let index = 0; index < this.subtypes.length; index++) {
             const subtype = this.subtypes[index];
             const parsed = subtype.parse(string.substring(currentPosition,string.length),start+currentPosition);
-            if(parsed == null) return null;
-            out.push(parsed);
-            currentPosition+=parsed.length;
+            if(parsed instanceof ParsedToken) {
+                out.push(parsed);
+                currentPosition+=parsed.length;
+                continue;
+            }
+            return null;
         }
         return new ParsedTokenShape(this,out,start);
     }
 }
 
-/**
- * The output of a token. Extended by each type of token.
- * It has the id assigned to the token it was parsed from.
- * It has the value which was matched, which could be a string or other tokens.
- * It has the length of what it's matched.
- * It has a copy of the Token which it was matched from.
- */
-abstract class ParsedToken {
+abstract class TokenOutput {
     /**
      * The id assigned to the token this was matched from.
      */
     public readonly id : string;
-    public abstract readonly value: any;
-    public readonly end : number;
-    
+
     constructor(
         /**
          * A copy of the Token this was matched from.
          */
         public readonly type: Token,
-        public readonly length : number,
         public readonly start: number,
-        ) {
+    ) {
         this.id = type.id;
+    }
+}
+
+abstract class ParsedToken extends TokenOutput {
+    public abstract readonly value: any;
+    public readonly end : number;
+    
+    
+    constructor(
+        type: Token,
+        public readonly length : number,
+        start: number,
+    ) {
+        super(type,start)
         this.end = start + length;
     }
 

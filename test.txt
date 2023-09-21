@@ -9,6 +9,6 @@ player {
     Multiline comments
     */
     OnJoin() {
-        // no statements yet
+        SendMessage(<>Hello!</>)
     }
 }

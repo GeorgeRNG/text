@@ -29,9 +29,13 @@ const FordSlash = new TokenWord('slash-forward',/\//);
 const BackSlash = new TokenWord('slash-back',/\\/);
 const Separator = new TokenWord('separator',/(\s*,\s*)|(\s+)/);
 
+const BigVariable = new TokenShape('big-variable',[GraveAccent,VariableName,GraveAccent]);
+const SmallVariable = new TokenWord('small-variable',/[%A-Z_][%A-Z0-9_]+/i);
+const Variable = new TokenOption('variable',[BigVariable,SmallVariable]);
+
 //#region
 const Number = new TokenWord('number',/-?\d+(\.\d+)?/);
-const String = new TokenWord('string',/"[^"]+"/i);
+const String = new TokenWord('string',/"[^"]*"/i);
 const Vector = new TokenShape('vector',[LeftAngleBracket,Number,Separator,Number,Separator,Number,RightAngleBracket]);
 
 const LocationFull = new TokenShape('location-full',[Number,Separator,Number,Separator,Number,Separator,Number,Separator,Number]);
@@ -41,30 +45,34 @@ const Location = new TokenShape('location',[LeftSquareBracket,LocationData,Right
 
 const TextOpen = new TokenShape('text-open',[LeftAngleBracket,RightAngleBracket]);
 const TextClose = new TokenShape('text-close',[LeftAngleBracket,FordSlash,RightAngleBracket]);
-const Text = new TokenShape('text',[TextOpen,VariableName,TextClose]);
+const TextContent = new TokenWord('text-content',/[^<]*/); // TODO: make a regex which parses until it reaches </>. Make sure it doesn't continue parsing if there is another
+const Text = new TokenShape('text',[TextOpen,TextContent,TextClose]);
 
 const Literals = [Number,String,Vector,Text,Location];
 const Literal = new TokenOption('value',Literals);
+
+const Value = new TokenOption('value',[Literal,Variable]);
 //#endregion
 
 const Assignment = new TokenWord('assignment','=');
 const VariableAssignment = new TokenShape('variable-assignment',[WhiteSpaceOptional,Assignment,WhiteSpaceOptional]);
-const VariableAssignmentLiteral = new TokenShape('variable-assignment-literal',[VariableAssignment,Literal]);
+const VariableAssignmentLiteral = new TokenShape('variable-assignment-literal',[VariableAssignment,Value]);
 
-const BigVariable = new TokenShape('big-variable',[GraveAccent,VariableName,GraveAccent]);
-const SmallVariable = new TokenWord('small-variable',/[%A-Z_][%A-Z0-9_]+/i);
-const Variable = new TokenOption('variable',[BigVariable,SmallVariable]);
 const GlobalVariable = new TokenShape('global',[GlobalScope,WhiteSpace,Variable]);
 const GlobalVariableAssignmentLiteral = new TokenShape('global-assign',[GlobalVariable,WhiteSpaceOptional,VariableAssignmentLiteral]);
 
 const Parameter = new TokenWord('parameter',/[A-Z_][A-Z0-9_]/i);
 const Parameters = new TokenPool('parameters',[Parameter,Separator]);
 
-const FunctionContents = new TokenPool('function-contents',[WhiteSpace,LineEnd,Comment]);
+const FunctionCallParameters = new TokenPool('function-call-parameters',[Value,Separator]);
+const FunctionCall = new TokenShape('function-call',[Variable,WhiteSpaceOptional,LeftParenthesis,FunctionCallParameters,RightParenthesis]);
+const LocalAssignment = new TokenShape('local-assignment',[Variable,VariableAssignmentLiteral]);
+
+const FunctionContents = new TokenPool('function-contents',[FunctionCall,LocalAssignment,WhiteSpace,LineEnd,Comment]);
 const Function = new TokenShape('function',[Variable,WhiteSpaceOptional,LeftParenthesis,Parameters,RightParenthesis,WhiteSpaceOptional,LeftCurlyBracket,FunctionContents,RightCurlyBracket]);
 
 const Player = new TokenWord('player',/player/i);
-const Entity = new TokenWord('entity',/ent(ity)/i);
+const Entity = new TokenWord('entity',/ent(ity)?/i);
 const EventScopeName = new TokenOption('event-scope-name',[Player,Entity]);
 const EventScopeContent = new TokenPool('event-scope-content',[WhiteSpace,LineEnd,Comment,Function,GlobalVariableAssignmentLiteral,GlobalVariable])
 const EventScope = new TokenShape('event-scope',[EventScopeName,WhiteSpaceOptional,LeftCurlyBracket,EventScopeContent,RightCurlyBracket]);
