@@ -34,7 +34,7 @@ const SmallVariable = new TokenWord('small-variable',/[%A-Z_][%A-Z0-9_]+/i);
 const Variable = new TokenOption('variable',[BigVariable,SmallVariable]);
 
 //#region
-const Number = new TokenWord('number',/-?\d+(\.\d+)?/);
+const Number = new TokenWord('number',/-?\d+(\.\d+)?/,(word) => parseFloat(word.value));
 const String = new TokenWord('string',/"[^"]*"/i);
 const Vector = new TokenShape('vector',[LeftAngleBracket,Number,Separator,Number,Separator,Number,RightAngleBracket]);
 

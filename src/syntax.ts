@@ -1,5 +1,5 @@
 abstract class Token {
-    constructor(public readonly id: string) {}
+    constructor(public readonly id: string, public readonly nice: (value: ParsedToken) => any = (_) => {throw Error("No nice.")}) {}
 
     abstract parse(string: string, start?: number): TokenOutput | null;
 }
@@ -10,8 +10,8 @@ abstract class Token {
 export class TokenWord extends Token {
     private readonly parser: (string: string) => number | null;
 
-    constructor(id: string, parserLike: ((string: string) => (number | null)) | RegExp | string) {
-        super(id);
+    constructor(id: string, parserLike: ((string: string) => (number | null)) | RegExp | string, nice?: (value: ParsedTokenWord) => any) {
+        super(id,nice);
         if(typeof parserLike == 'string') this.parser = (string) => string.startsWith(parserLike) ? parserLike.length : null
         else if(parserLike instanceof RegExp) this.parser = (string) => {
             let match = string.match(parserLike)
@@ -34,8 +34,8 @@ export class TokenWord extends Token {
  * Can return an empty array.
  */
 export class TokenPool extends Token {
-    constructor(id: string, public readonly subtypes: Token[]) {
-        super(id);
+    constructor(id: string, public readonly subtypes: Token[], nice?: (value: ParsedTokenPool) => any) {
+        super(id,nice);
     }
 
     parse(string: string, start = 0): ParsedTokenPool | null {
@@ -63,8 +63,8 @@ export class TokenPool extends Token {
  * Priorities the first matching one, or null.
  */
 export class TokenOption extends Token {
-    constructor(id: string, public readonly subtypes: Token[]) {
-        super(id);
+    constructor(id: string, public readonly subtypes: Token[],nice?: (value: ParsedTokenOption) => any) {
+        super(id,nice);
     }
 
     parse(string: string, start = 0): ParsedToken | null {
@@ -88,8 +88,8 @@ export class TokenOption extends Token {
  * A sequence of tokens which only resolve if all the subtypes match.
  */
 export class TokenShape extends Token {
-    constructor(id: string, public readonly subtypes: Token[]) {
-        super(id);
+    constructor(id: string, public readonly subtypes: Token[], nice?: (value: ParsedTokenShape) => any) {
+        super(id,nice);
     }
 
     parse(string: string, start = 0): ParsedTokenShape | null {
@@ -138,6 +138,10 @@ abstract class ParsedToken extends TokenOutput {
     ) {
         super(type,start)
         this.end = start + length;
+    }
+
+    nice() {
+        return this.type.nice(this);
     }
 
     toJSON() : any {
