@@ -45,7 +45,7 @@ const Location = new TokenShape('location',[LeftSquareBracket,LocationData,Right
 
 const TextOpen = new TokenShape('text-open',[LeftAngleBracket,RightAngleBracket]);
 const TextClose = new TokenShape('text-close',[LeftAngleBracket,FordSlash,RightAngleBracket]);
-const TextContent = new TokenWord('text-content',/[^<]*/); // TODO: make a regex which parses until it reaches </>. Make sure it doesn't continue parsing if there is another
+const TextContent = new TokenWord('text-content',str => str.includes('</>') ? str.indexOf('</>') : null);
 const Text = new TokenShape('text',[TextOpen,TextContent,TextClose]);
 
 const Literals = [Number,String,Vector,Text,Location];

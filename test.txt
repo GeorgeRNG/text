@@ -9,6 +9,6 @@ player {
     Multiline comments
     */
     OnJoin() {
-        SendMessage(<>Hello!</>)
+        SendMessage(<><green>Hello!</green></>)
     }
 }
