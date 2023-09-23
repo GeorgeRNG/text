@@ -1,5 +1,7 @@
 import { TokenWord, TokenOption, TokenShape, TokenPool } from './syntax'
 
+import { Number as DFNumber, Text as DFString, Vector as DFVector, Component as DFText, ArgumentItem, Location as DFLocation } from 'df.ts'
+
 const WhiteSpace = new TokenWord('space',/\s+/);
 const LineEnd = new TokenWord('end',/[\n;]+|$/);
 const WhiteSpaceOptional = new TokenWord('space-optional',/\s*/);
@@ -35,21 +37,27 @@ const Variable = new TokenOption('variable',[BigVariable,SmallVariable]);
 
 //#region
 const Number = new TokenWord('number',/-?\d+(\.\d+)?/,(word) => parseFloat(word.value));
-const String = new TokenWord('string',/"[^"]*"/i);
-const Vector = new TokenShape('vector',[LeftAngleBracket,Number,Separator,Number,Separator,Number,RightAngleBracket]);
+const String = new TokenWord('string',/"[^"]*"/i, (word) => word.value.substring(1,word.value.length - 1));
+const Vector = new TokenShape('vector',[LeftAngleBracket,Number,Separator,Number,Separator,Number,RightAngleBracket], (value) => new DFVector({x: value.value[1].nice(), y: value.value[3].nice(), z: value.value[5].nice()}));
 
-const LocationFull = new TokenShape('location-full',[Number,Separator,Number,Separator,Number,Separator,Number,Separator,Number]);
-const LocationBlock = new TokenShape('location-block',[Number,Separator,Number,Separator,Number]);
-const LocationData = new TokenOption('location-data',[LocationFull,LocationBlock]);
-const Location = new TokenShape('location',[LeftSquareBracket,LocationData,RightSquareBracket])
+const LocationFull = new TokenShape('location-full',[Number,Separator,Number,Separator,Number,Separator,Number,Separator,Number], (value) => new DFLocation({loc: {x: value.value[0].nice(), y: value.value[2].nice(), z: value.value[4].nice(), pitch: value.value[6].nice(), yaw: value.value[8].nice()}}));
+const LocationBlock = new TokenShape('location-block',[Number,Separator,Number,Separator,Number], (value) => new DFLocation({loc: {x: value.value[0].nice(), y: value.value[2].nice(), z: value.value[4].nice()}}));
+const LocationData = new TokenOption('location-data',[LocationFull,LocationBlock],(value) => value.value.nice());
+const Location = new TokenShape('location',[LeftSquareBracket,LocationData,RightSquareBracket],value => value.value[1].nice())
 
 const TextOpen = new TokenShape('text-open',[LeftAngleBracket,RightAngleBracket]);
 const TextClose = new TokenShape('text-close',[LeftAngleBracket,FordSlash,RightAngleBracket]);
 const TextContent = new TokenWord('text-content',str => str.includes('</>') ? str.indexOf('</>') : null);
-const Text = new TokenShape('text',[TextOpen,TextContent,TextClose]);
+const Text = new TokenShape('text',[TextOpen,TextContent,TextClose], (value) => new DFText({name: value.value[1].value}));
 
 const Literals = [Number,String,Vector,Text,Location];
-const Literal = new TokenOption('value',Literals);
+const Literal = new TokenOption('value',Literals, (token) => {
+    const value = token.value.nice();
+    if(value instanceof ArgumentItem) return value;
+    const type = typeof value;
+    if(type == 'number') return new DFNumber({name: value.toString()});
+    if(type == 'string') return new DFString({name: value});
+});
 
 const Value = new TokenOption('value',[Literal,Variable]);
 //#endregion
