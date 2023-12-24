@@ -1,7 +1,7 @@
 abstract class Token {
     constructor(public readonly id: string, public readonly nice: (value: ParsedToken) => any = (_) => {throw Error("No nice.")}) {}
 
-    abstract parse(string: string, start?: number): TokenOutput | null;
+    abstract parse(string: string, start?: number): TokenOutput | TokenError;
 }
 
 /**
@@ -22,9 +22,9 @@ export class TokenWord extends Token {
         else this.parser = parserLike;
     }
 
-    parse(string: string, start = 0): ParsedTokenWord | null {
+    parse(string: string, start = 0): ParsedTokenWord | TokenError {
         const parsed = this.parser(string);
-        if(parsed == null) return null;
+        if(parsed == null) return new TokenError(this,start);
         return new ParsedTokenWord(this,string.substring(0,parsed),start);
     }
 }
@@ -38,7 +38,7 @@ export class TokenPool extends Token {
         super(id,nice);
     }
 
-    parse(string: string, start = 0): ParsedTokenPool | null {
+    parse(string: string, start = 0): ParsedTokenPool | TokenError {
         const values : ParsedToken[] = [];
         let currentPosition = 0;
         while (currentPosition < string.length) {
@@ -60,23 +60,22 @@ export class TokenPool extends Token {
 
 /**
  * A token which works for any of the subtypes.
- * Priorities the first matching one, or null.
+ * Priorities the first matching one, or throws an Error.
  */
 export class TokenOption extends Token {
     constructor(id: string, public readonly subtypes: Token[],nice?: (value: ParsedTokenOption) => any) {
         super(id,nice);
     }
 
-    parse(string: string, start = 0): ParsedToken | null {
+    parse(string: string, start = 0): ParsedToken | TokenError {
         let value : ParsedToken | null = null;
-        // TODO: use a for loop
         for (let i = 0; i < this.subtypes.length; i++) {
             const subtype = this.subtypes[i];
             const parsed = subtype.parse(string,start);
-            if(parsed == null) continue;
+            if(parsed instanceof TokenError) continue;
             if(parsed instanceof ParsedToken) value = parsed;
         }
-        if(value == null) return null;
+        if(value == null) return new TokenError(this,start);
         return new ParsedTokenOption(this,value,start)
     }
     
@@ -92,18 +91,46 @@ export class TokenShape extends Token {
         super(id,nice);
     }
 
-    parse(string: string, start = 0): ParsedTokenShape | null {
-        const out : ParsedToken[] = [];
+    parse(string: string, start = 0): ParsedTokenShape | TokenError {
+        const out : (ParsedToken | TokenShapeError)[] = [];
         let currentPosition = 0;
-        for (let index = 0; index < this.subtypes.length; index++) {
-            const subtype = this.subtypes[index];
-            const parsed = subtype.parse(string.substring(currentPosition,string.length),start+currentPosition);
-            if(parsed instanceof ParsedToken) {
-                out.push(parsed);
-                currentPosition+=parsed.length;
-                continue;
+        let currentSubtype = 0;
+        while (true) {
+            const last = out.length == 0 ? null : out[out.length - 1];
+            const wasLastError = (last instanceof TokenError);
+            if(wasLastError) {
+                let parsed = null;
+                for (let trySubType = currentSubtype; trySubType < this.subtypes.length; trySubType++) {
+                    const attemptingSubtype = this.subtypes[trySubType];
+                    parsed = attemptingSubtype.parse(string.substring(currentPosition,string.length),start+currentPosition);
+                    if(parsed instanceof TokenError) continue;
+                    if(parsed instanceof ParsedToken) {
+                        currentSubtype = trySubType;
+                        out.push(parsed);
+                        currentPosition+=parsed.length;
+                        break;
+                    }
+                }
+                currentPosition++;
+                // TODO: fix this length value it's sometimes stray?
+                last.length++;
             }
-            return null;
+            else {
+                const subtype = this.subtypes[currentSubtype];
+                const parsed = subtype.parse(string.substring(currentPosition,string.length),start+currentPosition);
+                if(parsed instanceof TokenError) {
+                    out.push(new TokenShapeError(parsed,0));
+                    currentSubtype++;
+                }
+                if(parsed instanceof ParsedToken) {
+                    out.push(parsed);
+                    currentPosition+=parsed.length;
+                    currentSubtype++;
+                }
+            }
+            if(currentSubtype >= this.subtypes.length) {
+                return new ParsedTokenShape(this,out,start);
+            }
         }
         return new ParsedTokenShape(this,out,start);
     }
@@ -123,6 +150,39 @@ abstract class TokenOutput {
         public readonly start: number,
     ) {
         this.id = type.id;
+    }
+
+    toJSON() {
+        return {
+            id: this.id,
+            type: this.type,
+            start: this.start
+        }
+    }
+}
+
+class TokenError extends TokenOutput {
+    toJSON(): any {
+        return {...super.toJSON(), error: true}
+    }
+}
+class TokenShapeError extends TokenError {
+    public length: number;
+
+    constructor(from: TokenError, length: number)
+    constructor(type: Token, start: number, length: number)
+    constructor(fromOrType: TokenError|Token, startOrLength: number, length?: number) {
+        if(fromOrType instanceof TokenError) {
+            super(fromOrType.type, fromOrType.start);
+            this.length = startOrLength;
+        }
+        else if(length != null) {
+            super(fromOrType, startOrLength);
+            this.length = length;
+        }
+        else {
+            throw TypeError("Invalid parameters");
+        }
     }
 }
 
@@ -180,7 +240,7 @@ class ParsedTokenOption extends ParsedToken {
     }
 }
 class ParsedTokenShape extends ParsedToken {
-    constructor(type: TokenShape, public readonly value : ParsedToken[], start: number) {
+    constructor(type: TokenShape, public readonly value : (ParsedToken | TokenShapeError)[], start: number) {
         super(type,value.reduce((accumulator, currentValue) => accumulator + currentValue.length, 0), start);
     }
 
