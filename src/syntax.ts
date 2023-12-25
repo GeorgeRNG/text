@@ -1,5 +1,12 @@
-abstract class Token {
-    constructor(public readonly id: string, public readonly nice: (value: ParsedToken) => any = (_) => {throw Error("No nice.")}) {}
+export abstract class Token {
+    constructor(
+        public readonly id: string, 
+        /**
+         * Convert the Token to a nice to work with object.
+         * It is called with one function, which is itself.
+         */
+        public readonly nice: (value: ParsedToken) => any = (v) => {throw Error(`No nice (${v.id})`)}
+    ) {}
 
     abstract parse(string: string, start?: number): TokenOutput | TokenError;
 }
@@ -138,7 +145,7 @@ export class TokenShape extends Token {
     }
 }
 
-abstract class TokenOutput {
+export abstract class TokenOutput {
     /**
      * The id assigned to the token this was matched from.
      */
@@ -163,12 +170,12 @@ abstract class TokenOutput {
     }
 }
 
-class TokenError extends TokenOutput {
+export class TokenError extends TokenOutput {
     toJSON(): any {
         return {...super.toJSON(), error: true}
     }
 }
-class TokenShapeError extends TokenError {
+export class TokenShapeError extends TokenError {
     public length: number;
     public value = "";
 
@@ -193,7 +200,7 @@ class TokenShapeError extends TokenError {
     }
 }
 
-abstract class ParsedToken extends TokenOutput {
+export abstract class ParsedToken extends TokenOutput {
     public abstract readonly value: any;
     public readonly end : number;
     
@@ -219,7 +226,7 @@ abstract class ParsedToken extends TokenOutput {
     }
 }
 
-class ParsedTokenWord extends ParsedToken {
+export class ParsedTokenWord extends ParsedToken {
     constructor(type: TokenWord, public readonly value: string, start: number) {
         super(type, value.length, start);
     }
@@ -228,7 +235,7 @@ class ParsedTokenWord extends ParsedToken {
         return {...super.toJSON(), value: this.value}
     }
 }
-class ParsedTokenPool extends ParsedToken {
+export class ParsedTokenPool extends ParsedToken {
     constructor(type: TokenPool, public readonly value : ParsedToken[], start: number) {
         super(type,value.reduce((accumulator, currentValue) => accumulator + currentValue.length, 0),start);
     }
@@ -237,7 +244,7 @@ class ParsedTokenPool extends ParsedToken {
         return {...super.toJSON(), values: this.value.map(value => value.toJSON())}
     }
 }
-class ParsedTokenOption extends ParsedToken {
+export class ParsedTokenOption extends ParsedToken {
     constructor(type: TokenOption, public readonly value: ParsedToken, start: number) {
         super(type,value.length,start);
     }
@@ -246,7 +253,7 @@ class ParsedTokenOption extends ParsedToken {
         return {...super.toJSON(), value: this.value}
     }
 }
-class ParsedTokenShape extends ParsedToken {
+export class ParsedTokenShape extends ParsedToken {
     constructor(type: TokenShape, public readonly value : (ParsedToken | TokenShapeError)[], start: number) {
         super(type,value.reduce((accumulator, currentValue) => accumulator + currentValue.length, 0), start);
     }

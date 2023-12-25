@@ -1,10 +1,13 @@
-import { StorageScope } from "./src/diamondfire/ast";
+import { Global } from "./src/diamondfire/ast";
+import { ParsedToken } from "./src/syntax";
 
-const out = StorageScope.parse(await Bun.file('./test.txt').text())
+const out = Global.parse(await Bun.file('./test.txt').text())
 
-console.log(out?.toString());
+console.log(out.toString());
+if(out instanceof ParsedToken) {
+    console.log(out.nice());
+}
 
-StorageScope.parse('game x = 0')
 
 // import { TokenPool, TokenShape, TokenWord } from "./src/syntax";
 // const A = new TokenWord('a','aaa');

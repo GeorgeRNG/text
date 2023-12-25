@@ -9,6 +9,6 @@
     "typescript": "^5.0.0"
   },
   "dependencies": {
-    "df.ts": "git+https://github.com/DFOnline/df.ts.git"
+    "df.ts": "github:DFOnline/df.ts"
   }
 }
