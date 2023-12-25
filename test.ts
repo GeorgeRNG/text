@@ -13,5 +13,5 @@ const B = new TokenWord('b','bbb');
 const C = new TokenWord('c','ccc');
 const TestAst = new TokenShape('test',[A,B,C]);
 
-const out = TestAst.parse("aaaccc");
+const out = TestAst.parse("aaabbbccc");
 console.log(JSON.stringify(out));

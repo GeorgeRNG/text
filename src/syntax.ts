@@ -82,7 +82,6 @@ export class TokenOption extends Token {
 }
 
 
-
 /**
  * A sequence of tokens which only resolve if all the subtypes match.
  */
@@ -102,25 +101,25 @@ export class TokenShape extends Token {
                 let parsed = null;
                 for (let trySubType = currentSubtype; trySubType < this.subtypes.length; trySubType++) {
                     const attemptingSubtype = this.subtypes[trySubType];
-                    parsed = attemptingSubtype.parse(string.substring(currentPosition,string.length),start+currentPosition);
+                    parsed = attemptingSubtype.parse(string.substring(currentPosition),start+currentPosition);
                     if(parsed instanceof TokenError) continue;
                     if(parsed instanceof ParsedToken) {
-                        currentSubtype = trySubType;
-                        out.push(parsed);
+                        currentSubtype = trySubType + 1;
                         currentPosition+=parsed.length;
+                        out.push(parsed);
                         break;
                     }
                 }
                 currentPosition++;
-                // TODO: fix this length value it's sometimes stray?
-                last.length++;
+                if(parsed == null || parsed instanceof TokenError) {
+                    last.length++;
+                }
             }
             else {
                 const subtype = this.subtypes[currentSubtype];
                 const parsed = subtype.parse(string.substring(currentPosition,string.length),start+currentPosition);
                 if(parsed instanceof TokenError) {
                     out.push(new TokenShapeError(parsed,0));
-                    currentSubtype++;
                 }
                 if(parsed instanceof ParsedToken) {
                     out.push(parsed);
@@ -131,8 +130,10 @@ export class TokenShape extends Token {
             if(currentSubtype >= this.subtypes.length) {
                 return new ParsedTokenShape(this,out,start);
             }
+            if(currentPosition >= string.length) {
+                return new TokenError(this,start)
+            }
         }
-        return new ParsedTokenShape(this,out,start);
     }
 }
 
