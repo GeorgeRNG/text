@@ -1,17 +1,16 @@
-// import { StorageScope } from "./src";
+import { StorageScope } from "./src";
 
-import { TokenPool, TokenShape, TokenWord } from "./src/syntax";
+const out = StorageScope.parse(await Bun.file('./test.txt').text())
 
-// const out = StorageScope.parse(await Bun.file('./test.txt').text())
+console.log(out?.toString());
 
-// console.log(out?.toString());
+StorageScope.parse('game x = 0')
 
-// StorageScope.parse('game x = 0')
+// import { TokenPool, TokenShape, TokenWord } from "./src/syntax";
+// const A = new TokenWord('a','aaa');
+// const B = new TokenWord('b','bbb');
+// const C = new TokenWord('c','ccc');
+// const TestAst = new TokenShape('test',[A,B,C]);
 
-const A = new TokenWord('a','aaa');
-const B = new TokenWord('b','bbb');
-const C = new TokenWord('c','ccc');
-const TestAst = new TokenShape('test',[A,B,C]);
-
-const out = TestAst.parse("aaabbbccc");
-console.log(JSON.stringify(out));
+// const out = TestAst.parse("aaabbbccc");
+// console.log(JSON.stringify(out));

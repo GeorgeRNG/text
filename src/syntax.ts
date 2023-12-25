@@ -110,10 +110,11 @@ export class TokenShape extends Token {
                         break;
                     }
                 }
-                currentPosition++;
                 if(parsed == null || parsed instanceof TokenError) {
+                    last.value+=string.substring(currentPosition,currentPosition+1);
                     last.length++;
                 }
+                currentPosition++;
             }
             else {
                 const subtype = this.subtypes[currentSubtype];
@@ -169,6 +170,7 @@ class TokenError extends TokenOutput {
 }
 class TokenShapeError extends TokenError {
     public length: number;
+    public value = "";
 
     constructor(from: TokenError, length: number)
     constructor(type: Token, start: number, length: number)
@@ -184,6 +186,10 @@ class TokenShapeError extends TokenError {
         else {
             throw TypeError("Invalid parameters");
         }
+    }
+
+    nice() {
+        throw Error("Can't use nice on an error output.")
     }
 }
 

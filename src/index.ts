@@ -76,13 +76,23 @@ const FunctionCallParameters = new TokenPool('function-call-parameters',[Value,S
 const FunctionCall = new TokenShape('function-call',[Variable,WhiteSpaceOptional,LeftParenthesis,FunctionCallParameters,RightParenthesis]);
 const LocalAssignment = new TokenShape('local-assignment',[Variable,VariableAssignmentLiteral]);
 
-const FunctionContents = new TokenPool('function-contents',[FunctionCall,LocalAssignment,WhiteSpace,LineEnd,Comment]);
-const Function = new TokenShape('function',[Variable,WhiteSpaceOptional,LeftParenthesis,Parameters,RightParenthesis,WhiteSpaceOptional,LeftCurlyBracket,FunctionContents,RightCurlyBracket]);
+const CodeBlock = new TokenPool('function-contents',[FunctionCall,LocalAssignment,WhiteSpace,LineEnd,Comment]);
+const CallableAssignment = new TokenShape('function',[Variable,WhiteSpaceOptional,LeftParenthesis,Parameters,RightParenthesis,WhiteSpaceOptional,LeftCurlyBracket,CodeBlock,RightCurlyBracket],() => {
+    return new MyFunction([]);
+});
+class MyStatement {
+
+}
+class MyFunction {
+    constructor(public blocks: MyStatement[]) {}
+}
+
+const Process = new TokenWord('process',/proc(ess)?/i);
+const Function = new TokenWord('function',/f(u)?(n)?(c)?(t)?(i)?(o)?(n)?/i);
 
 const Player = new TokenWord('player',/player/i);
 const Entity = new TokenWord('entity',/ent(ity)?/i);
-const EventScopeName = new TokenOption('event-scope-name',[Player,Entity]);
-const EventScopeContent = new TokenPool('event-scope-content',[WhiteSpace,LineEnd,Comment,Function,GlobalVariableAssignmentLiteral,GlobalVariable])
-const EventScope = new TokenShape('event-scope',[EventScopeName,WhiteSpaceOptional,LeftCurlyBracket,EventScopeContent,RightCurlyBracket]);
+const EventScope = new TokenOption('event-scope',[Player,Entity])
+const Event = new TokenShape('event',[EventScope,WhiteSpaceOptional,CallableAssignment]);
 
-export const StorageScope = new TokenPool('game',[WhiteSpace,LineEnd,Comment,GlobalVariableAssignmentLiteral,GlobalVariable,EventScope]);
+export const StorageScope = new TokenPool('game',[WhiteSpace,LineEnd,Comment,GlobalVariableAssignmentLiteral,GlobalVariable,Event,CallableAssignment]);

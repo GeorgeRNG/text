@@ -1,14 +1,3 @@
-GAME timer // we have comments!!
+player hi(hi) {
 
-player {
-    GAME score = 1
-    GAME `a vector ig` = <0,1,1>
-    SAVE spawn = [10,60,10]
-
-    /*
-    Multiline comments
-    */
-    OnJoin() {
-        SendMessage(<><green>Hello!</green></>)
-    }
 }
