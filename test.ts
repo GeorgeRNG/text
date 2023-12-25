@@ -1,4 +1,4 @@
-import { StorageScope } from "./src";
+import { StorageScope } from "./src/diamondfire/ast";
 
 const out = StorageScope.parse(await Bun.file('./test.txt').text())
 

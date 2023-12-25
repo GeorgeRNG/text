@@ -1,6 +1,7 @@
-import { TokenWord, TokenOption, TokenShape, TokenPool } from './syntax'
+import { MyVariable, Scope, Scopes } from '.';
+import { TokenWord, TokenOption, TokenShape, TokenPool } from '../syntax'
 
-import { Number as DFNumber, Text as DFString, Vector as DFVector, Component as DFText, ArgumentItem, Location as DFLocation } from 'df.ts'
+import { Number as DFNumber, Text as DFString, Vector as DFVector, Component as DFText, ArgumentItem, Location as DFLocation, Variable } from 'df.ts'
 
 const WhiteSpace = new TokenWord('space',/\s+/);
 const LineEnd = new TokenWord('end',/[\n;]+|$/);
@@ -11,11 +12,20 @@ const CommentBlock = new TokenWord('comment-block',/((\/\*)([\s\S]+?)(\*\/))/);
 const Comment = new TokenOption('comment',[CommentLine,CommentBlock])
 
 const GraveAccent = new TokenWord('grave','`');
-const VariableName = new TokenWord('variable-name',/[^\n`\\]+/i);
 
-const Game = new TokenWord('scope-game',/G(AME)?/i);
-const Save = new TokenWord('scope-save',/S(AVE)?/i);
-const GlobalScope = new TokenOption('global-scope',[Game,Save]);
+const Game = new TokenWord('scope-game',/G(AME)?/i, () => Scopes.GAME);
+const Save = new TokenWord('scope-save',/S(AVE)?/i, () => Scopes.SAVE);
+const GlobalScope = new TokenOption('scope-global',[Game,Save], (v): Scope => {
+    return v.nice();
+});
+const Local = new TokenWord('scope-local',/L(OCAL)?/i, () => Scopes.LOCAL);
+const Line = new TokenWord('scope-line',/I|LINE/i, () => Scopes.SAVE);
+const PrivateScope = new TokenOption('scope-private',[Local,Line], (v): Scope => {
+    return v.nice();
+});
+const Scope = new TokenOption('scope',[GlobalScope,PrivateScope], (v): Scope => {
+    return v.nice();
+});
 
 const LeftParenthesis = new TokenWord('bracket-regular-left','(');
 const RightParenthesis = new TokenWord('bracket-regular-right',')');
@@ -31,9 +41,10 @@ const FordSlash = new TokenWord('slash-forward',/\//);
 const BackSlash = new TokenWord('slash-back',/\\/);
 const Separator = new TokenWord('separator',/(\s*,\s*)|(\s+)/);
 
-const BigVariable = new TokenShape('big-variable',[GraveAccent,VariableName,GraveAccent]);
-const SmallVariable = new TokenWord('small-variable',/[%A-Z_][%A-Z0-9_]+/i);
-const Variable = new TokenOption('variable',[BigVariable,SmallVariable]);
+const BigVariableNameContent = new TokenWord('variable-name-big-content',/[^\n`\\]+/i, (v) => v.value);
+const BigVariableName = new TokenShape('variable-name-big',[GraveAccent,BigVariableNameContent,GraveAccent], (v) => v.value[1].nice());
+const SmallVariableName = new TokenWord('variable-name-small',/[%A-Z_][%A-Z0-9_]+/i, (v) => v.value);
+const VariableName = new TokenOption('variable-name',[BigVariableName,SmallVariableName], (v) => v.value.nice());
 
 //#region
 const Number = new TokenWord('number',/-?\d+(\.\d+)?/,(word) => parseFloat(word.value));
@@ -59,40 +70,16 @@ const Literal = new TokenOption('value',Literals, (token) => {
     if(type == 'string') return new DFString({name: value});
 });
 
-const Value = new TokenOption('value',[Literal,Variable]);
+const Value = new TokenOption('value',[Literal,VariableName]);
 //#endregion
 
 const Assignment = new TokenWord('assignment','=');
 const VariableAssignment = new TokenShape('variable-assignment',[WhiteSpaceOptional,Assignment,WhiteSpaceOptional]);
 const VariableAssignmentLiteral = new TokenShape('variable-assignment-literal',[VariableAssignment,Value]);
 
-const GlobalVariable = new TokenShape('global',[GlobalScope,WhiteSpace,Variable]);
+const GlobalVariable = new TokenShape('global',[GlobalScope,WhiteSpace,VariableName], (v) => {
+    return new MyVariable(v.value[0].nice(),v.value[2].nice());
+});
 const GlobalVariableAssignmentLiteral = new TokenShape('global-assign',[GlobalVariable,WhiteSpaceOptional,VariableAssignmentLiteral]);
 
-const Parameter = new TokenWord('parameter',/[A-Z_][A-Z0-9_]/i);
-const Parameters = new TokenPool('parameters',[Parameter,Separator]);
-
-const FunctionCallParameters = new TokenPool('function-call-parameters',[Value,Separator]);
-const FunctionCall = new TokenShape('function-call',[Variable,WhiteSpaceOptional,LeftParenthesis,FunctionCallParameters,RightParenthesis]);
-const LocalAssignment = new TokenShape('local-assignment',[Variable,VariableAssignmentLiteral]);
-
-const CodeBlock = new TokenPool('function-contents',[FunctionCall,LocalAssignment,WhiteSpace,LineEnd,Comment]);
-const CallableAssignment = new TokenShape('function',[Variable,WhiteSpaceOptional,LeftParenthesis,Parameters,RightParenthesis,WhiteSpaceOptional,LeftCurlyBracket,CodeBlock,RightCurlyBracket],() => {
-    return new MyFunction([]);
-});
-class MyStatement {
-
-}
-class MyFunction {
-    constructor(public blocks: MyStatement[]) {}
-}
-
-const Process = new TokenWord('process',/proc(ess)?/i);
-const Function = new TokenWord('function',/f(u)?(n)?(c)?(t)?(i)?(o)?(n)?/i);
-
-const Player = new TokenWord('player',/player/i);
-const Entity = new TokenWord('entity',/ent(ity)?/i);
-const EventScope = new TokenOption('event-scope',[Player,Entity])
-const Event = new TokenShape('event',[EventScope,WhiteSpaceOptional,CallableAssignment]);
-
-export const StorageScope = new TokenPool('game',[WhiteSpace,LineEnd,Comment,GlobalVariableAssignmentLiteral,GlobalVariable,Event,CallableAssignment]);
+export const StorageScope = new TokenPool('game',[WhiteSpace,LineEnd,Comment,GlobalVariableAssignmentLiteral,GlobalVariable]);
