@@ -41,8 +41,15 @@ export class TokenWord extends Token {
  * Can return an empty array.
  */
 export class TokenPool extends Token {
-    constructor(id: string, public readonly subtypes: Token[], nice?: (value: ParsedTokenPool) => any) {
+    public readonly subtypes: () => Token[]
+    constructor(id: string, subtypes: (() => Token[]) | (Token[]), nice?: (value: ParsedTokenPool) => any) {
         super(id,nice);
+        if(subtypes instanceof Array) {
+            this.subtypes = () => subtypes;
+        }
+        else {
+            this.subtypes = subtypes;
+        }
     }
 
     parse(string: string, start = 0): ParsedTokenPool | TokenError {
@@ -50,7 +57,7 @@ export class TokenPool extends Token {
         let currentPosition = 0;
         while (currentPosition < string.length) {
             // TODO: this could use a for loop.
-            const found = this.subtypes.find(subtype => {
+            const found = this.subtypes().find(subtype => {
                 const parsed = subtype.parse(string.substring(currentPosition,string.length),start+currentPosition);
                 if(parsed instanceof ParsedToken) {
                     values.push(parsed);
@@ -93,12 +100,21 @@ export class TokenOption extends Token {
  * A sequence of tokens which only resolve if all the subtypes match.
  */
 export class TokenShape extends Token {
-    constructor(id: string, public readonly subtypes: Token[], nice?: (value: ParsedTokenShape) => any) {
+    public readonly subtypes: () => Token[]
+    constructor(id: string, subtypes: (() => Token[]) | (Token[]), nice?: (value: ParsedTokenShape) => any) {
         super(id,nice);
+        if(subtypes instanceof Array) {
+            this.subtypes = () => subtypes;
+        }
+        else {
+            this.subtypes = subtypes;
+        }
     }
 
     parse(string: string, start = 0): ParsedTokenShape | TokenError {
-        const out : (ParsedToken | TokenShapeError)[] = [];
+        const subtypes = this.subtypes();
+        const out : (ParsedToken | TokenAndLengthError)[] = [];
+        let hasError = false;
         let currentPosition = 0;
         let currentSubtype = 0;
         while (true) {
@@ -106,8 +122,8 @@ export class TokenShape extends Token {
             const wasLastError = (last instanceof TokenError);
             if(wasLastError) {
                 let parsed = null;
-                for (let trySubType = currentSubtype; trySubType < this.subtypes.length; trySubType++) {
-                    const attemptingSubtype = this.subtypes[trySubType];
+                for (let trySubType = currentSubtype; trySubType < subtypes.length; trySubType++) {
+                    const attemptingSubtype = subtypes[trySubType];
                     parsed = attemptingSubtype.parse(string.substring(currentPosition),start+currentPosition);
                     if(parsed instanceof TokenError) continue;
                     if(parsed instanceof ParsedToken) {
@@ -118,16 +134,17 @@ export class TokenShape extends Token {
                     }
                 }
                 if(parsed == null || parsed instanceof TokenError) {
+                    hasError = true;
                     last.value+=string.substring(currentPosition,currentPosition+1);
                     last.length++;
                 }
                 currentPosition++;
             }
             else {
-                const subtype = this.subtypes[currentSubtype];
+                const subtype = subtypes[currentSubtype];
                 const parsed = subtype.parse(string.substring(currentPosition,string.length),start+currentPosition);
                 if(parsed instanceof TokenError) {
-                    out.push(new TokenShapeError(parsed,0));
+                    out.push(new TokenAndLengthError(parsed,0));
                 }
                 if(parsed instanceof ParsedToken) {
                     out.push(parsed);
@@ -135,7 +152,7 @@ export class TokenShape extends Token {
                     currentSubtype++;
                 }
             }
-            if(currentSubtype >= this.subtypes.length) {
+            if(currentSubtype >= subtypes.length) {
                 return new ParsedTokenShape(this,out,start);
             }
             if(currentPosition >= string.length) {
@@ -175,7 +192,7 @@ export class TokenError extends TokenOutput {
         return {...super.toJSON(), error: true}
     }
 }
-export class TokenShapeError extends TokenError {
+export class TokenAndLengthError extends TokenError {
     public length: number;
     public value = "";
 
@@ -200,10 +217,29 @@ export class TokenShapeError extends TokenError {
     }
 }
 
+export class TokenErrorShape extends TokenError {
+    public readonly id: string;
+    public value: (TokenAndLengthError | ParsedToken)[];
+    public readonly length: number;
+    constructor(type: TokenShape) {
+        new ParsedTokenShape()
+        super(type,token.start);
+        this.id = token.id;
+        this.length = token.length;
+        this.value = token.value;
+    }
+    toJSON() {
+        this.token.toJSON();
+    }
+    public end: number = 0;
+    nice() {
+        throw new Error("Can't use nice on an error output.")
+    }
+}
+
 export abstract class ParsedToken extends TokenOutput {
     public abstract readonly value: any;
     public readonly end : number;
-    
     
     constructor(
         type: Token,
@@ -254,7 +290,7 @@ export class ParsedTokenOption extends ParsedToken {
     }
 }
 export class ParsedTokenShape extends ParsedToken {
-    constructor(type: TokenShape, public readonly value : (ParsedToken | TokenShapeError)[], start: number) {
+    constructor(type: TokenShape, public readonly value : ParsedToken[], start: number) {
         super(type,value.reduce((accumulator, currentValue) => accumulator + currentValue.length, 0), start);
     }
 

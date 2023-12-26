@@ -1,3 +1,6 @@
+// comment here
 player onjoin {
+    // comment there
     player sendmessage(<>hello!</>)
 }
+// comment afterwards
