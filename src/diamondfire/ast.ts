@@ -79,26 +79,6 @@ const Literal = new TokenOption('value',Literals, (token) => {
 const Value = new TokenOption('value',[Literal,VariableName]);
 //#endregion
 
-const Assignment = new TokenWord('assignment','=');
-const VariableAssignment = new TokenShape('variable-assignment',[WhiteSpaceOptional,Assignment,WhiteSpaceOptional]);
-const VariableAssignmentLiteral = new TokenShape('variable-assignment-literal',[VariableAssignment,Value]);
-
-//#region Actions
-
-//#region Action Types
-const PlayerAction = new TokenWord('action-type-player',/pla?y?e?r?/i, () => 'player_action');
-const EntityAction = new TokenWord('action-type-entity',/enti?t?y?/, () => 'entity_action');
-const VariableAction = new TokenWord('action-type-variable', /(set )? vari?a?b?l?e?/i, () => 'set_var');
-const GameAction = new TokenWord('action-type-game',/ga?me?/i, () => 'game_action');
-const ControlAction = new TokenWord('action-type', /co?n?tro?l/i, () => 'control');
-const SelectAction = new TokenWord('action-type', /sele?c?t?/i, () => 'select_obj');
-
-const SelectionActions = new TokenOption('action-type-selection', [PlayerAction,EntityAction], v => v.value.nice());
-const RegularActions = new TokenOption('action-type-regular',[VariableAction,GameAction,ControlAction], v => v.value.nice());
-const SubActions = new TokenOption('action-type-sub', [SelectAction], v => v.value.nice());
-const Actions = new TokenOption('action-type', [SelectAction,RegularActions,SubActions], v => v.value.nice());
-//#endregion
-
 //#region Selections
 const AllPlayersSelection = new TokenWord('selection-allplayers', /AllP?l?a?y?e?r?s?/i, () => 'AllPlayers');
 const VictimSelection = new TokenWord('selection-victim', /Vict?i?m?/i, () => 'Victim');
@@ -113,21 +93,25 @@ const LastEntitySelection = new TokenWord('selection-lastentity', /LastE?n?t?i?t
 const Selections = new TokenOption('selection',[AllPlayersSelection,VictimSelection,ShooterSelection,DamagerSelection,KillerSelection,DefaultSelection,SelectionSelection,ProjectileSelection,LastEntitySelection,], v => v.nice());
 //#endregion
 
-const Parameters = new TokenPool('paramaters',[Value,Separator], v => v.value.filter(v => v.type == Value).map(v => v.nice()))
-const Call = new TokenShape('call',[LeftCurlyBracket,Parameters,RightCurlyBracket]);
+//#region Action
+//#region Action Types
+const PlayerAction = new TokenWord('action-type-player',/pla?y?e?r?/i, () => 'player_action');
+const EntityAction = new TokenWord('action-type-entity',/enti?t?y?/, () => 'entity_action');
+const VariableAction = new TokenWord('action-type-variable', /(set )? vari?a?b?l?e?/i, () => 'set_var');
+const GameAction = new TokenWord('action-type-game',/ga?me?/i, () => 'game_action');
+const ControlAction = new TokenWord('action-type-control', /co?n?tro?l/i, () => 'control');
+const SelectAction = new TokenWord('action-type-select', /sele?c?t?/i, () => 'select_obj');
 
-const RegularAction = new TokenShape('action-regular',[Actions,Call], v => v.id);
-const SelectionAction = new TokenShape('action-selection',[Selections,SelectionActions,Call], v => v.id);
-const SubAction = new TokenShape('action-sub',[SubActions/**, SubAction */,Call], v => v.id);
+const SelectionActions = new TokenOption('action-type-selection',[PlayerAction,EntityAction], v => v.value.nice());
+const SubActionActions = new TokenOption('action-type-subaction',[SelectAction], v => v.value.nice());
+const Actions = new TokenOption('action-type',[PlayerAction,EntityAction,VariableAction,GameAction,ControlAction], v => v.value.nice());
 
-const Action = new TokenOption('action',[RegularAction,SelectionAction,SubAction],v => v.value.nice());
+const SelectionActionTrace = new TokenShape('action-selection-trace',[SelectionActions,WhiteSpace,Selections,WhiteSpace,SomeText]);
+//#endregion
 //#endregion
 
-const CodeActions = new TokenPool('codeblock-action',[WhiteSpace,LineEnd,Comment,Action]);
-const Codeblock = new TokenShape('codeblock',[LeftCurlyBracket,CodeActions,RightCurlyBracket], v => {
-    const pool = v.value[1] as ParsedTokenPool
-    return pool.value.filter(v => v.type == Action).map((v) => v.nice());
-});
+const CodeblockContent = new TokenPool('codeblock-content',[Comment,WhiteSpace,LineEnd,SelectionActionTrace]);
+const Codeblock = new TokenShape('codeblock',[LeftCurlyBracket,CodeblockContent,RightCurlyBracket])
 
 //#region Code Headers
 const PlayerHeader = new TokenWord('header-type-player',/pla?y?e?r?/i, () => 'event');
@@ -135,23 +119,10 @@ const EntityHeader = new TokenWord('header-type-entity',/en?t?i?t?y?/i, () => 'e
 const ProcessHeader = new TokenWord('header-type-process',/pro?c?e?s?s?/i, () => 'proc');
 const FunctionHeader = new TokenWord('header-type-function', /fu?n?c?t?i?o?n?/i, () => 'func');
 
-const ParamlessHeaders = new TokenOption('header-type-noparams', [PlayerHeader,EntityHeader,ProcessHeader], v => v.value.nice());
-const Headers = new TokenOption('headers',[ParamlessHeaders], v => v.value.nice());
-const Header = new TokenShape('header',[Headers,WhiteSpaceOptional,SomeText], v => {
-    return new MyHeader(v.value[0].nice(),v.value[2].nice());
-});
-
-const ParamlessCodeline = new TokenShape('codeline-paramless', [Header,WhiteSpaceOptional,Codeblock], v => {
-    return new MyCodeline(v.value[0].nice(), v.value[2].nice());
-});
-const Codeline = new TokenOption('codeline', [ParamlessCodeline], v => v.value.nice());
+const Events = new TokenOption('event-type',[PlayerHeader,EntityHeader], v => v.value.nice());
+const Event = new TokenShape('event',[Events,WhiteSpace,SomeText,WhiteSpaceOptional,Codeblock]);
 //#endregion
 
-const GlobalVariable = new TokenShape('global',[GlobalScope,WhiteSpace,VariableName], (v) => {
-    return new MyVariable(v.value[0].nice(),v.value[2].nice());
-});
-const GlobalVariableAssignmentLiteral = new TokenShape('global-assign',[GlobalVariable,WhiteSpaceOptional,VariableAssignmentLiteral]);
-
-export const Global = new TokenPool('game',[WhiteSpace,LineEnd,Comment,Codeline], v => {
-    return new MyGlobal(v.value.filter(v => v.type == Codeline).map(v => v.nice()));
+export const Global = new TokenPool('game',[WhiteSpace,LineEnd,Comment,Event], v => {
+    // return new MyGlobal(v.value.filter(v => v.type == false).map(v => v.nice()));
 });

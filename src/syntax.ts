@@ -1,3 +1,5 @@
+import chalk from 'chalk';
+
 export abstract class Token {
     constructor(
         public readonly id: string, 
@@ -49,10 +51,10 @@ export class TokenPool extends Token {
         const values : ParsedToken[] = [];
         let currentPosition = 0;
         while (currentPosition < string.length) {
-            // TODO: this could use a for loop.
             const found = this.subtypes.find(subtype => {
                 const parsed = subtype.parse(string.substring(currentPosition,string.length),start+currentPosition);
-                if(parsed instanceof ParsedToken) {
+                // TODO: better error handling here?
+                if(parsed instanceof ParsedToken && !parsed.error) {
                     values.push(parsed);
                     currentPosition+=parsed.length;
                     return true;
@@ -80,7 +82,13 @@ export class TokenOption extends Token {
             const subtype = this.subtypes[i];
             const parsed = subtype.parse(string,start);
             if(parsed instanceof TokenError) continue;
-            if(parsed instanceof ParsedToken) value = parsed;
+            if(parsed instanceof ParsedToken) {
+                if(value == null) value = parsed;
+                if(value != null) {
+                    if(value.error || !parsed.error) value = parsed;
+                }
+                if(!parsed.error) break;
+            }
         }
         if(value == null) return new TokenError(this,start);
         return new ParsedTokenOption(this,value,start)
@@ -101,10 +109,13 @@ export class TokenShape extends Token {
         const out : (ParsedToken | TokenShapeError)[] = [];
         let currentPosition = 0;
         let currentSubtype = 0;
+        let errors = false;
         while (true) {
             const last = out.length == 0 ? null : out[out.length - 1];
             const wasLastError = (last instanceof TokenError);
+            if(last?.error) errors = true;
             if(wasLastError) {
+                errors = true;
                 let parsed = null;
                 for (let trySubType = currentSubtype; trySubType < this.subtypes.length; trySubType++) {
                     const attemptingSubtype = this.subtypes[trySubType];
@@ -136,7 +147,9 @@ export class TokenShape extends Token {
                 }
             }
             if(currentSubtype >= this.subtypes.length) {
-                return new ParsedTokenShape(this,out,start);
+                const r = new ParsedTokenShape(this,out,start);
+                r.error = errors;
+                return r;
             }
             if(currentPosition >= string.length) {
                 return new TokenError(this,start)
@@ -150,6 +163,7 @@ export abstract class TokenOutput {
      * The id assigned to the token this was matched from.
      */
     public readonly id : string;
+    public error = false;
 
     constructor(
         /**
@@ -168,11 +182,25 @@ export abstract class TokenOutput {
             start: this.start
         }
     }
+
+    toString() {
+        return `${this.id}: `
+    }
+
+    asString(type: string, content: string) {
+        return `${chalk.green(this.start)} ${chalk.blueBright('(')}${chalk.yellow(type)}${chalk.blueBright(')')} ${chalk.redBright(this.id)}${chalk.white(':')} ${this.error ? chalk.bgRed.white('⚠') : ''} ${chalk.white(content)}`
+    }
 }
 
 export class TokenError extends TokenOutput {
+    public error = true;
+
     toJSON(): any {
         return {...super.toJSON(), error: true}
+    }
+
+    toString(): string {
+        return `${this.start} (error) ${this.id}`
     }
 }
 export class TokenShapeError extends TokenError {
@@ -198,6 +226,10 @@ export class TokenShapeError extends TokenError {
     nice() {
         throw Error("Can't use nice on an error output.")
     }
+
+    toString(): string {
+        return super.asString('shape error', this.value);
+    }
 }
 
 export abstract class ParsedToken extends TokenOutput {
@@ -220,9 +252,6 @@ export abstract class ParsedToken extends TokenOutput {
 
     toJSON() : any {
         return {id: this.id, start: this.start, length: this.length, end: this.end}
-    };
-    toString(): string {
-        return JSON.stringify(this,null,4);
     }
 }
 
@@ -234,6 +263,10 @@ export class ParsedTokenWord extends ParsedToken {
     toJSON() {
         return {...super.toJSON(), value: this.value}
     }
+
+    toString() {
+        return super.asString('word',this.value);
+    }
 }
 export class ParsedTokenPool extends ParsedToken {
     constructor(type: TokenPool, public readonly value : ParsedToken[], start: number) {
@@ -242,6 +275,10 @@ export class ParsedTokenPool extends ParsedToken {
 
     toJSON() {
         return {...super.toJSON(), values: this.value.map(value => value.toJSON())}
+    }
+
+    toString(): string {
+        return super.asString('pool',`\n${tabulate(this.value.map(v => v.toString()).join('\n'))}`);
     }
 }
 export class ParsedTokenOption extends ParsedToken {
@@ -252,6 +289,10 @@ export class ParsedTokenOption extends ParsedToken {
     toJSON() {
         return {...super.toJSON(), value: this.value}
     }
+
+    toString() {
+        return super.asString('option',`\n${tabulate(this.value.toString())}`);
+    }
 }
 export class ParsedTokenShape extends ParsedToken {
     constructor(type: TokenShape, public readonly value : (ParsedToken | TokenShapeError)[], start: number) {
@@ -261,4 +302,12 @@ export class ParsedTokenShape extends ParsedToken {
     toJSON() {
         return {...super.toJSON(), values: this.value.map(value => value.toJSON())}
     }
+
+    toString(): string {
+        return super.asString('shape', `\n${tabulate(this.value.map(v => v.toString()).join('\n'))}`)
+    }
+}
+
+function tabulate(string: string) {
+    return '│    ' + string.split('\n').join('\n│    ')
 }

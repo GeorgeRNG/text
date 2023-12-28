@@ -21,7 +21,7 @@ export class MyFunctionHeader extends MyHeader {
 
 }
 export class MyCodeline {
-    constructor(public header: MyHeader, public blocks: MyBlock) {}
+    constructor(public header: MyHeader, public blocks: MyBlock[]) {}
 }
 
 export class MyGlobal {

@@ -1,3 +1,7 @@
-player onjoin {
-    player sendmessage(<>hello!</>)
+player hello {
+    player all sendmessage
+}
+
+player hello {
+    player awa sendmessage
 }
