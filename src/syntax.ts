@@ -71,8 +71,8 @@ export class TokenPool extends Token<any> {
  * A token which works for any of the subtypes.
  * Priorities the first matching one, or throws an Error.
  */
-export class TokenOption<T extends Token<any>[]> extends Token<any> {
-    constructor(id: string, public readonly subtypes: T,nice?: (value: ParsedTokenOption<T>) => any) {
+export class TokenOption extends Token<any> {
+    constructor(id: string, public readonly subtypes: Token<any>[],nice?: (value: ParsedTokenOption) => any) {
         super(id,nice);
     }
 
@@ -281,8 +281,8 @@ export class ParsedTokenPool extends ParsedToken<any> {
         return super.asString('pool',`\n${tabulate(this.value.map(v => v.toString()).join('\n'))}`);
     }
 }
-export class ParsedTokenOption<T extends Token<any>[]> extends ParsedToken<any> {
-    constructor(type: TokenOption<T>, public readonly value: ParsedToken<any>, start: number) {
+export class ParsedTokenOption extends ParsedToken<any> {
+    constructor(type: TokenOption, public readonly value: ParsedToken<any>, start: number) {
         super(type,value.length,start);
     }
 
