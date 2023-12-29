@@ -1,13 +1,13 @@
 import chalk from 'chalk';
 
-export abstract class Token {
+export abstract class Token<T extends any> {
     constructor(
         public readonly id: string, 
         /**
          * Convert the Token to a nice to work with object.
          * It is called with one function, which is itself.
          */
-        public readonly nice: (value: ParsedToken) => any = (v) => {throw Error(`No nice (${v.id})`)}
+        public readonly nice: (value: ParsedToken<T>) => any = (v) => {throw Error(`No nice (${v.id})`)}
     ) {}
 
     abstract parse(string: string, start?: number): TokenOutput | TokenError;
@@ -16,7 +16,7 @@ export abstract class Token {
 /**
  * A single token, a piece of text.
  */
-export class TokenWord extends Token {
+export class TokenWord extends Token<string> {
     private readonly parser: (string: string) => number | null;
 
     constructor(id: string, parserLike: ((string: string) => (number | null)) | RegExp | string, nice?: (value: ParsedTokenWord) => any) {
@@ -42,13 +42,13 @@ export class TokenWord extends Token {
  * Any order, amount and shape of given tokens.
  * Can return an empty array.
  */
-export class TokenPool extends Token {
-    constructor(id: string, public readonly subtypes: Token[], nice?: (value: ParsedTokenPool) => any) {
+export class TokenPool extends Token<any> {
+    constructor(id: string, public readonly subtypes: Token<any>[], nice?: (value: ParsedTokenPool) => any) {
         super(id,nice);
     }
 
     parse(string: string, start = 0): ParsedTokenPool | TokenError {
-        const values : ParsedToken[] = [];
+        const values : ParsedToken<any>[] = [];
         let currentPosition = 0;
         while (currentPosition < string.length) {
             const found = this.subtypes.find(subtype => {
@@ -71,13 +71,13 @@ export class TokenPool extends Token {
  * A token which works for any of the subtypes.
  * Priorities the first matching one, or throws an Error.
  */
-export class TokenOption extends Token {
-    constructor(id: string, public readonly subtypes: Token[],nice?: (value: ParsedTokenOption) => any) {
+export class TokenOption<T extends Token<any>[]> extends Token<any> {
+    constructor(id: string, public readonly subtypes: T,nice?: (value: ParsedTokenOption<T>) => any) {
         super(id,nice);
     }
 
-    parse(string: string, start = 0): ParsedToken | TokenError {
-        let value : ParsedToken | null = null;
+    parse(string: string, start = 0): ParsedToken<any> | TokenError {
+        let value : ParsedToken<any> | null = null;
         for (let i = 0; i < this.subtypes.length; i++) {
             const subtype = this.subtypes[i];
             const parsed = subtype.parse(string,start);
@@ -100,13 +100,13 @@ export class TokenOption extends Token {
 /**
  * A sequence of tokens which only resolve if all the subtypes match.
  */
-export class TokenShape extends Token {
-    constructor(id: string, public readonly subtypes: Token[], nice?: (value: ParsedTokenShape) => any) {
+export class TokenShape extends Token<any> {
+    constructor(id: string, public readonly subtypes: Token<any>[], nice?: (value: ParsedTokenShape) => any) {
         super(id,nice);
     }
 
     parse(string: string, start = 0): ParsedTokenShape | TokenError {
-        const out : (ParsedToken | TokenShapeError)[] = [];
+        const out : (ParsedToken<any> | TokenShapeError)[] = [];
         let currentPosition = 0;
         let currentSubtype = 0;
         let errors = false;
@@ -169,7 +169,7 @@ export abstract class TokenOutput {
         /**
          * A copy of the Token this was matched from.
          */
-        public readonly type: Token,
+        public readonly type: Token<any>,
         public readonly start: number,
     ) {
         this.id = type.id;
@@ -208,8 +208,8 @@ export class TokenShapeError extends TokenError {
     public value = "";
 
     constructor(from: TokenError, length: number)
-    constructor(type: Token, start: number, length: number)
-    constructor(fromOrType: TokenError|Token, startOrLength: number, length?: number) {
+    constructor(type: Token<any>, start: number, length: number)
+    constructor(fromOrType: TokenError|Token<any>, startOrLength: number, length?: number) {
         if(fromOrType instanceof TokenError) {
             super(fromOrType.type, fromOrType.start);
             this.length = startOrLength;
@@ -232,13 +232,13 @@ export class TokenShapeError extends TokenError {
     }
 }
 
-export abstract class ParsedToken extends TokenOutput {
-    public abstract readonly value: any;
+export abstract class ParsedToken<T> extends TokenOutput {
+    public abstract readonly value: T;
     public readonly end : number;
     
     
     constructor(
-        type: Token,
+        type: Token<T>,
         public readonly length : number,
         start: number,
     ) {
@@ -255,7 +255,7 @@ export abstract class ParsedToken extends TokenOutput {
     }
 }
 
-export class ParsedTokenWord extends ParsedToken {
+export class ParsedTokenWord extends ParsedToken<string> {
     constructor(type: TokenWord, public readonly value: string, start: number) {
         super(type, value.length, start);
     }
@@ -268,8 +268,8 @@ export class ParsedTokenWord extends ParsedToken {
         return super.asString('word',this.value);
     }
 }
-export class ParsedTokenPool extends ParsedToken {
-    constructor(type: TokenPool, public readonly value : ParsedToken[], start: number) {
+export class ParsedTokenPool extends ParsedToken<any> {
+    constructor(type: TokenPool, public readonly value : ParsedToken<any>[], start: number) {
         super(type,value.reduce((accumulator, currentValue) => accumulator + currentValue.length, 0),start);
     }
 
@@ -281,8 +281,8 @@ export class ParsedTokenPool extends ParsedToken {
         return super.asString('pool',`\n${tabulate(this.value.map(v => v.toString()).join('\n'))}`);
     }
 }
-export class ParsedTokenOption extends ParsedToken {
-    constructor(type: TokenOption, public readonly value: ParsedToken, start: number) {
+export class ParsedTokenOption<T extends Token<any>[]> extends ParsedToken<any> {
+    constructor(type: TokenOption<T>, public readonly value: ParsedToken<any>, start: number) {
         super(type,value.length,start);
     }
 
@@ -294,8 +294,8 @@ export class ParsedTokenOption extends ParsedToken {
         return super.asString('option',`\n${tabulate(this.value.toString())}`);
     }
 }
-export class ParsedTokenShape extends ParsedToken {
-    constructor(type: TokenShape, public readonly value : (ParsedToken | TokenShapeError)[], start: number) {
+export class ParsedTokenShape extends ParsedToken<any> {
+    constructor(type: TokenShape, public readonly value : (ParsedToken<any> | TokenShapeError)[], start: number) {
         super(type,value.reduce((accumulator, currentValue) => accumulator + currentValue.length, 0), start);
     }
 
