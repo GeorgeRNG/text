@@ -1,5 +1,5 @@
 import { MyCodeline, MyGlobal, MyHeader, MyVariable, Scope, Scopes } from '.';
-import { TokenWord, TokenOption, TokenShape, TokenPool, ParsedTokenPool } from '../syntax'
+import { TokenWord, TokenOption, TokenShape, TokenPool, ParsedTokenPool, ParsedTokenWord, TokenError, ToParsedToken } from '../syntax'
 
 import { Number as DFNumber, Text as DFString, Vector as DFVector, Component as DFText, ArgumentItem, Location as DFLocation, Variable, CodeblockNames } from 'df.ts'
 
@@ -18,15 +18,16 @@ const GraveAccent = new TokenWord('grave','`');
 
 const Game = new TokenWord('scope-game',/G(AME)?/i, () => Scopes.GAME);
 const Save = new TokenWord('scope-save',/S(AVE)?/i, () => Scopes.SAVE);
-const GlobalScope = new TokenOption('scope-global',[Game,Save], (v): Scope => {
+const GlobalScope = new TokenOption('scope-global',[Game,Save] as const, (v): 'unsaved' | 'saved' => {
     return v.nice();
 });
+type Save = (ToParsedToken<typeof GlobalScope>)
 const Local = new TokenWord('scope-local',/L(OCAL)?/i, () => Scopes.LOCAL);
 const Line = new TokenWord('scope-line',/I|LINE/i, () => Scopes.SAVE);
-const PrivateScope = new TokenOption('scope-private',[Local,Line], (v): Scope => {
+const PrivateScope = new TokenOption('scope-private',[Local,Line], (v) => {
     return v.nice();
 });
-const Scope = new TokenOption('scope',[GlobalScope,PrivateScope], (v): Scope => {
+const Scope = new TokenOption('scope',[GlobalScope,PrivateScope], (v) => {
     return v.nice();
 });
 
@@ -55,17 +56,17 @@ const Separator = new TokenWord('separator',/(\s*,\s*)|(\s+)/);
 //#region Values
 const Number = new TokenWord('number',/-?\d+(\.\d+)?/,(word) => parseFloat(word.value));
 const String = new TokenWord('string',/"[^"]*"/i, (word) => word.value.substring(1,word.value.length - 1));
-const Vector = new TokenShape('vector',[LeftAngleBracket,Number,Separator,Number,Separator,Number,RightAngleBracket], (value) => new DFVector({x: value.value[1].nice(), y: value.value[3].nice(), z: value.value[5].nice()}));
+const Vector = new TokenShape('vector',[LeftAngleBracket,Number,Separator,Number,Separator,Number,RightAngleBracket] as const, (value) => new DFVector({x: value.value[1].nice(), y: value.value[3].nice(), z: value.value[5].nice()}));
 
-const LocationFull = new TokenShape('location-full',[Number,Separator,Number,Separator,Number,Separator,Number,Separator,Number], (value) => new DFLocation({loc: {x: value.value[0].nice(), y: value.value[2].nice(), z: value.value[4].nice(), pitch: value.value[6].nice(), yaw: value.value[8].nice()}}));
-const LocationBlock = new TokenShape('location-block',[Number,Separator,Number,Separator,Number], (value) => new DFLocation({loc: {x: value.value[0].nice(), y: value.value[2].nice(), z: value.value[4].nice()}}));
+const LocationFull = new TokenShape('location-full',[Number,Separator,Number,Separator,Number,Separator,Number,Separator,Number] as const, (value) => new DFLocation({loc: {x: value.value[0].nice(), y: value.value[2].nice(), z: value.value[4].nice(), pitch: value.value[6].nice(), yaw: value.value[8].nice()}}));
+const LocationBlock = new TokenShape('location-block',[Number,Separator,Number,Separator,Number] as const, (value) => new DFLocation({loc: {x: value.value[0].nice(), y: value.value[2].nice(), z: value.value[4].nice()}}));
 const LocationData = new TokenOption('location-data',[LocationFull,LocationBlock],(value) => value.value.nice());
 const Location = new TokenShape('location',[LeftSquareBracket,LocationData,RightSquareBracket],value => value.value[1].nice())
 
 const TextOpen = new TokenShape('text-open',[LeftAngleBracket,RightAngleBracket]);
 const TextClose = new TokenShape('text-close',[LeftAngleBracket,FordSlash,RightAngleBracket]);
-const TextContent = new TokenWord('text-content',str => str.includes('</>') ? str.indexOf('</>') : null);
-const Text = new TokenShape('text',[TextOpen,TextContent,TextClose], (value) => new DFText({name: value.value[1].value}));
+const TextContent = new TokenWord('text-content',str => str.includes('</>') ? str.indexOf('</>') : null, v => v.value);
+const Text = new TokenShape('text',[TextOpen,TextContent,TextClose] as const, (value) => new DFText({name: value.value[1].value}));
 
 const Literals = [Number,String,Vector,Text,Location];
 const Literal = new TokenOption('value',Literals, (token) => {
@@ -80,17 +81,17 @@ const Value = new TokenOption('value',[Literal,VariableName]);
 //#endregion
 
 //#region Selections
-const AllPlayersSelection = new TokenWord('selection-allplayers', /AllP?l?a?y?e?r?s?/i, () => 'AllPlayers');
-const VictimSelection = new TokenWord('selection-victim', /Vict?i?m?/i, () => 'Victim');
-const ShooterSelection = new TokenWord('selection-shooter', /Shoote?r?/i, () => 'Shooter');
-const DamagerSelection = new TokenWord('selection-damager', /Damage?r?/i, () => 'Damager');
-const KillerSelection = new TokenWord('selection-killer', /Kille?r?/i, () => 'Killer');
-const DefaultSelection = new TokenWord('selection-default', /Defa?u?l?t?/i, () => 'Default');
-const SelectionSelection = new TokenWord('selection-selection', /Sele?c?t?i?o?n?/i, () => 'Selection');
-const ProjectileSelection = new TokenWord('selection-projectile', /Proje?c?t?i?l?e?/i, () => 'Projectile');
-const LastEntitySelection = new TokenWord('selection-lastentity', /LastE?n?t?i?t?y?/i, () => 'LastEntity');
+const AllPlayersSelection = new TokenWord('selection-allplayers', /AllP?l?a?y?e?r?s?/i, () => 'AllPlayers' as const);
+const VictimSelection = new TokenWord('selection-victim', /Vict?i?m?/i, () => 'Victim' as const);
+const ShooterSelection = new TokenWord('selection-shooter', /Shoote?r?/i, () => 'Shooter' as const);
+const DamagerSelection = new TokenWord('selection-damager', /Damage?r?/i, () => 'Damager' as const);
+const KillerSelection = new TokenWord('selection-killer', /Kille?r?/i, () => 'Killer' as const);
+const DefaultSelection = new TokenWord('selection-default', /Defa?u?l?t?/i, () => 'Default' as const);
+const SelectionSelection = new TokenWord('selection-selection', /Sele?c?t?i?o?n?/i, () => 'Selection' as const);
+const ProjectileSelection = new TokenWord('selection-projectile', /Proje?c?t?i?l?e?/i, () => 'Projectile' as const);
+const LastEntitySelection = new TokenWord('selection-lastentity', /LastE?n?t?i?t?y?/i, () => 'LastEntity' as const);
 
-const Selections = new TokenOption('selection',[AllPlayersSelection,VictimSelection,ShooterSelection,DamagerSelection,KillerSelection,DefaultSelection,SelectionSelection,ProjectileSelection,LastEntitySelection,], v => v.nice());
+const Selections = new TokenOption('selection',[AllPlayersSelection,VictimSelection,ShooterSelection,DamagerSelection,KillerSelection,DefaultSelection,SelectionSelection,ProjectileSelection,LastEntitySelection] as const, v => v.value.nice());
 //#endregion
 
 //#region Action
@@ -111,18 +112,30 @@ const SelectionActionTrace = new TokenShape('action-selection-trace',[SelectionA
 //#endregion
 
 const CodeblockContent = new TokenPool('codeblock-content',[Comment,WhiteSpace,LineEnd,SelectionActionTrace]);
-const Codeblock = new TokenShape('codeblock',[LeftCurlyBracket,CodeblockContent,RightCurlyBracket])
+const Codeblock = new TokenShape('codeblock',[LeftCurlyBracket,CodeblockContent,RightCurlyBracket] as const)
 
 //#region Code Headers
-const PlayerHeader = new TokenWord('header-type-player',/pla?y?e?r?/i, () => 'event');
-const EntityHeader = new TokenWord('header-type-entity',/en?t?i?t?y?/i, () => 'entity_event');
-const ProcessHeader = new TokenWord('header-type-process',/pro?c?e?s?s?/i, () => 'proc');
-const FunctionHeader = new TokenWord('header-type-function', /fu?n?c?t?i?o?n?/i, () => 'func');
+const PlayerHeader = new TokenWord('header-type-player',/pla?y?e?r?/i, () => 'event' as const);
+const EntityHeader = new TokenWord('header-type-entity',/en?t?i?t?y?/i, () => 'entity_event' as const);
+const ProcessHeader = new TokenWord('header-type-process',/pro?c?e?s?s?/i, () => 'proc' as const);
+const FunctionHeader = new TokenWord('header-type-function', /fu?n?c?t?i?o?n?/i, () => 'func' as const);
 
-const Events = new TokenOption('event-type',[PlayerHeader,EntityHeader], v => v.value.nice());
-const Event = new TokenShape('event',[Events,WhiteSpace,SomeText,WhiteSpaceOptional,Codeblock]);
+const Events = new TokenOption('event-type',[PlayerHeader,EntityHeader] as const, (v) => v.value.nice());
+const Event = new TokenShape('event',[Events,WhiteSpace,SomeText,WhiteSpaceOptional,Codeblock] as const, t => {
+    t.value[0].nice()
+    return "HIHI" as "HIHI" | "hihi";
+});
 //#endregion
 
-export const Global = new TokenPool('game',[WhiteSpace,LineEnd,Comment,Event], v => {
+export const Global = new TokenPool('game',[Event] as const, v => {
+    const x = v.value
+    const nc = x[0].nice()
+    return "Hi" as const;
     // return new MyGlobal(v.value.filter(v => v.type == false).map(v => v.nice()));
 });
+
+const x = Global.parse("1")
+if(!(x instanceof TokenError)) {
+    const y = x.nice();
+    const z = y == 'Hi' as const;
+}
