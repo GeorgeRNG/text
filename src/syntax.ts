@@ -1,5 +1,4 @@
 import chalk from 'chalk';
-
 export abstract class Token<NiceResult> {
     constructor(
         public readonly id: string, 
@@ -91,7 +90,9 @@ export class TokenOption<NiceResult, SubTypes extends Token<any>[]> extends Toke
             }
         }
         if(value == null) return new TokenError(this,start);
-        return new ParsedTokenOption(this,value as any,start)
+        const out = new ParsedTokenOption(this,value as any,start);
+        out.error = value.error;
+        return out;
     }
     
 }
@@ -128,7 +129,7 @@ export class TokenShape<NiceResult, Subtypes extends Token<any>[]> extends Token
                         break;
                     }
                 }
-                if(parsed == null || parsed instanceof TokenShape) {
+                if(parsed == null || parsed instanceof TokenError) {
                     last.value+=string.substring(currentPosition,currentPosition+1);
                     last.length++;
                 }
@@ -188,7 +189,7 @@ export abstract class TokenOutput {
     }
 
     asString(type: string, content: string) {
-        return `${chalk.green(this.start)} ${chalk.blueBright('(')}${chalk.yellow(type)}${chalk.blueBright(')')} ${chalk.redBright(this.id)}${chalk.white(':')} ${this.error ? chalk.bgRed.white('⚠') : ''} ${chalk.white(content)}`
+        return `${chalk.green(this.start)} ${chalk.blueBright('(')}${chalk.yellow(type)}${chalk.blueBright(')')} ${chalk.redBright(this.id)}${chalk.white(':')}${this.error ? ' ' + chalk.bgRed.white('⚠') : ''} ${chalk.white(content)}`
     }
 }
 
@@ -266,7 +267,7 @@ export class ParsedTokenWord<NiceResult> extends ParsedToken<TokenWord<NiceResul
     }
 
     toString() {
-        return super.asString('word',this.value);
+        return super.asString('word',this.value.length == 0 ? chalk.grey('(empty)') : this.value.replaceAll('\n',chalk.bgBlueBright('\\n')).replaceAll(' ',chalk.bgBlueBright(' ')));
     }
 }
 export class ParsedTokenPool<NiceResult, SubTypes extends Token<any>[]> extends ParsedToken<TokenPool<NiceResult, SubTypes>> {
@@ -279,7 +280,7 @@ export class ParsedTokenPool<NiceResult, SubTypes extends Token<any>[]> extends 
     }
 
     toString(): string {
-        return super.asString('pool',`\n${tabulate(this.value.map(v => v.toString()).join('\n'))}`);
+        return super.asString('pool',this.value.length == 0 ? chalk.grey('(empty)') : `\n${tabulate(this.value.map(v => v.toString()).join('\n'))}`);
     }
 }
 export class ParsedTokenOption<NiceResult, SubTypes extends Token<any>[]> extends ParsedToken<TokenOption<NiceResult,SubTypes>> {

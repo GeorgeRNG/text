@@ -1,7 +1,8 @@
 player hello {
-    player all sendmessage
+    player all hello
+    player hello()
 }
 
-player hello {
-    player awa sendmessage
+player hello2 {
+    player all hihi
 }

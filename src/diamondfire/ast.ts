@@ -1,5 +1,5 @@
 import { MyCodeline, MyGlobal, MyHeader, MyVariable, Scope, Scopes } from '.';
-import { TokenWord, TokenOption, TokenShape, TokenPool, ParsedTokenPool, ParsedTokenWord, TokenError, ToParsedToken } from '../syntax'
+import { TokenWord, TokenOption, TokenShape, TokenPool, ParsedTokenPool, ParsedTokenWord, TokenError } from '../syntax'
 
 import { Number as DFNumber, Text as DFString, Vector as DFVector, Component as DFText, ArgumentItem, Location as DFLocation, Variable, CodeblockNames } from 'df.ts'
 
@@ -16,19 +16,18 @@ const SomeText = new TokenWord('text', /\w+/i, v => v.value);
 //#region Variables
 const GraveAccent = new TokenWord('grave','`');
 
-const Game = new TokenWord('scope-game',/G(AME)?/i, () => Scopes.GAME);
-const Save = new TokenWord('scope-save',/S(AVE)?/i, () => Scopes.SAVE);
+const Game = new TokenWord('scope-game',/G(AME)?/i, (v) => 'unsaved');
+const Save = new TokenWord('scope-save',/S(AVE)?/i, (v) => 'saved');
 const GlobalScope = new TokenOption('scope-global',[Game,Save] as const, (v): 'unsaved' | 'saved' => {
-    return v.nice();
+    return v.value.nice();
 });
-type Save = (ToParsedToken<typeof GlobalScope>)
 const Local = new TokenWord('scope-local',/L(OCAL)?/i, () => Scopes.LOCAL);
 const Line = new TokenWord('scope-line',/I|LINE/i, () => Scopes.SAVE);
 const PrivateScope = new TokenOption('scope-private',[Local,Line], (v) => {
-    return v.nice();
+    return v.value.nice();
 });
 const Scope = new TokenOption('scope',[GlobalScope,PrivateScope], (v) => {
-    return v.nice();
+    return v.value.nice();
 });
 
 const BigVariableNameContent = new TokenWord('variable-name-big-content',/[^\n`\\]+/i, (v) => v.value);
@@ -108,10 +107,15 @@ const SubActionActions = new TokenOption('action-type-subaction',[SelectAction],
 const Actions = new TokenOption('action-type',[PlayerAction,EntityAction,VariableAction,GameAction,ControlAction], v => v.value.nice());
 
 const SelectionActionTrace = new TokenShape('action-selection-trace',[SelectionActions,WhiteSpace,Selections,WhiteSpace,SomeText]);
+const SubActionTrace = new TokenShape('action-sub-trace',[SubActionActions,WhiteSpace,SomeText,WhiteSpace,SomeText]);
+const ActionTrace = new TokenShape('action-all-trace',[Actions,WhiteSpace,SomeText]);
+
+const ActionTraces = new TokenOption('action-trace',[SelectionActionTrace,SubActionActions,ActionTrace]);
+const ActionCall = new TokenShape('action',[ActionTraces,WhiteSpaceOptional,LeftParenthesis,WhiteSpaceOptional,RightParenthesis]);
 //#endregion
 //#endregion
 
-const CodeblockContent = new TokenPool('codeblock-content',[Comment,WhiteSpace,LineEnd,SelectionActionTrace]);
+const CodeblockContent = new TokenPool('codeblock-content',[Comment,WhiteSpace,LineEnd,ActionCall,ActionTraces] as const);
 const Codeblock = new TokenShape('codeblock',[LeftCurlyBracket,CodeblockContent,RightCurlyBracket] as const)
 
 //#region Code Headers
@@ -127,9 +131,7 @@ const Event = new TokenShape('event',[Events,WhiteSpace,SomeText,WhiteSpaceOptio
 });
 //#endregion
 
-export const Global = new TokenPool('game',[Event] as const, v => {
-    const x = v.value
-    const nc = x[0].nice()
+export const Global = new TokenPool('game',[WhiteSpace,LineEnd,Comment,Event] as const, v => {
     return "Hi" as const;
     // return new MyGlobal(v.value.filter(v => v.type == false).map(v => v.nice()));
 });
